@@ -1,5 +1,7 @@
 # dsh-shell
 
+English | [中文](README.zh-CN.md)
+
 Select the shell used by DSH's model-facing one-shot command tool and the Web `minimal` preset's persistent command tool. The plugin targets DSH `0.2.0-rc.1`. `auto` keeps DSH's current default: bash on macOS and Linux, and DSH's own PowerShell resolver on Windows.
 
 On macOS and Linux, the plugin detects bash and zsh. Select `zsh` to start one-shot commands with `zsh -lic` and the persistent PTY with `zsh -li`. The PTY wrappers source the user's original `.zshenv`, `.zprofile`, `.zshrc`, and `.zlogin`, respecting `ZDOTDIR`. Exports from those files, including credential variables, are available to model-invoked shell commands. `shellPath` can point to another installation of the chosen bash or zsh. An explicit `bash` selection starts one-shot commands as an interactive login shell; `auto` preserves DSH's original one-shot `bash -c` behavior.
