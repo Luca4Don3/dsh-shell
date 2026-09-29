@@ -1,5 +1,5 @@
 {
-  "name": "dsh-shell-selector",
+  "name": "dsh-shell",
   "description": "Select the shell for DSH agent commands and persistent terminals",
   "version": "0.1.0",
   "private": true,

@@ -61,31 +61,31 @@ export function detectInstalledShells(platform = process.platform, env = process
 
 export function resolveSelection(config, platform = process.platform, env = process.env) {
   const requested = config.shell ?? 'auto'
-  if (requested === 'auto' && config.shellPath) throw new Error('shell-selector: shellPath requires an explicit shell selection')
-  if (requested !== 'wsl' && config.wslDistribution) throw new Error('shell-selector: wslDistribution requires wsl')
-  if (requested === 'wsl' && config.shellPath) throw new Error('shell-selector: shellPath is not supported for wsl')
+  if (requested === 'auto' && config.shellPath) throw new Error('dsh-shell: shellPath requires an explicit shell selection')
+  if (requested !== 'wsl' && config.wslDistribution) throw new Error('dsh-shell: wslDistribution requires wsl')
+  if (requested === 'wsl' && config.shellPath) throw new Error('dsh-shell: shellPath is not supported for wsl')
   const id = requested === 'auto' ? (platform === 'win32' ? 'native-pwsh' : 'bash') : requested
-  if (platform === 'win32' && ['bash', 'zsh'].includes(id)) throw new Error(`shell-selector: ${id} requires a POSIX host; select wsl on Windows`)
-  if (platform !== 'win32' && ['pwsh7', 'powershell', 'wsl'].includes(id)) throw new Error(`shell-selector: ${id} requires Windows`)
+  if (platform === 'win32' && ['bash', 'zsh'].includes(id)) throw new Error(`dsh-shell: ${id} requires a POSIX host; select wsl on Windows`)
+  if (platform !== 'win32' && ['pwsh7', 'powershell', 'wsl'].includes(id)) throw new Error(`dsh-shell: ${id} requires Windows`)
   if (id === 'native-pwsh') return { id: 'auto', dialect: 'pwsh' }
   if (['bash', 'zsh'].includes(id)) {
     const path = config.shellPath || detectInstalledShells(platform, env).find(item => item.id === id)?.path
-    if (!path || !exists(path)) throw new Error(`shell-selector: ${id} executable was not found`)
-    if (basename(path) !== id) throw new Error(`shell-selector: shellPath must name a ${id} executable`)
+    if (!path || !exists(path)) throw new Error(`dsh-shell: ${id} executable was not found`)
+    if (basename(path) !== id) throw new Error(`dsh-shell: shellPath must name a ${id} executable`)
     return { id: requested, dialect: 'bash', path, shell: id }
   }
   const found = windowsPrograms(env)
   if (id === 'pwsh7' || id === 'powershell') {
     const path = config.shellPath || found[id === 'pwsh7' ? 'pwsh' : 'powershell']
-    if (!path || !exists(path)) throw new Error(`shell-selector: ${id} executable was not found`)
+    if (!path || !exists(path)) throw new Error(`dsh-shell: ${id} executable was not found`)
     return { id, dialect: 'pwsh', path }
   }
   if (id === 'wsl') {
     const distributions = detectWslDistributions(found.wsl)
-    if (!distributions.length) throw new Error('shell-selector: WSL has no installed distribution')
+    if (!distributions.length) throw new Error('dsh-shell: WSL has no installed distribution')
     const distribution = config.wslDistribution || undefined
-    if (distribution && !distributions.includes(distribution)) throw new Error(`shell-selector: WSL distribution ${JSON.stringify(distribution)} is not installed`)
+    if (distribution && !distributions.includes(distribution)) throw new Error(`dsh-shell: WSL distribution ${JSON.stringify(distribution)} is not installed`)
     return { id, dialect: 'bash', path: found.wsl, distribution }
   }
-  throw new Error(`shell-selector: unsupported shell ${JSON.stringify(id)}`)
+  throw new Error(`dsh-shell: unsupported shell ${JSON.stringify(id)}`)
 }

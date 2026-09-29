@@ -19,7 +19,7 @@ export class SelectedWindowsExecutor extends SandboxPwshExecutor {
 
   async execute(spec) {
     if (this.selection.id === 'wsl' && spec.sandboxPolicy?.mode !== 'danger-full-access') {
-      throw new Error('shell-selector: WSL cannot be confined by the DSH Windows sandbox; use danger-full-access explicitly')
+      throw new Error('dsh-shell: WSL cannot be confined by the DSH Windows sandbox; use danger-full-access explicitly')
     }
     return super.execute(spec)
   }

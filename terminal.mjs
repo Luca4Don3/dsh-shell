@@ -13,7 +13,7 @@ export const Config = TerminalConfig
 class SelectedTerminalBackend extends BashTerminalBackend {
   async spawn(spec) {
     if (this.selection.id === 'wsl' && this.ctx.sandboxPolicy.resolve({ session: spec.owner.session }).mode !== 'danger-full-access') {
-      throw new Error('shell-selector: WSL cannot be confined by the DSH Windows sandbox; use danger-full-access explicitly')
+      throw new Error('dsh-shell: WSL cannot be confined by the DSH Windows sandbox; use danger-full-access explicitly')
     }
     return super.spawn(spec)
   }
@@ -22,7 +22,7 @@ class SelectedTerminalBackend extends BashTerminalBackend {
 export function apply(ctx, config) {
   const selection = ctx.shellSelection.selected
   if (config.shellPath || config.shellArgs?.length || (config.shellDialect && config.shellDialect !== 'bash')) {
-    throw new Error('terminal-selected-shell: configure shell in the shell-selector plugin, not the terminal backend')
+    throw new Error('terminal-selected-shell: configure shell in the dsh-shell plugin, not the terminal backend')
   }
   let resolved
   let spawnTerminal

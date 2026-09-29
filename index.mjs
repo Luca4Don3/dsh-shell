@@ -2,7 +2,7 @@ import { Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { detectInstalledShells, resolveSelection } from './selection.mjs'
 
-export const name = 'shell-selector'
+export const name = 'dsh-shell'
 export const inject = ['systemPrompt']
 const installedShells = detectInstalledShells()
 const wslDistributions = installedShells.find(item => item.id === 'wsl')?.distributions ?? []

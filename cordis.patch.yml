@@ -4,17 +4,17 @@
 - id: pwsh-sandbox
   disabled: true
 - insert:
-    - id: shell-selector
-      name: dsh-shell-selector
+    - id: dsh-shell
+      name: dsh-shell
       config:
         shell: auto
     - id: selected-posix-shell
-      name: dsh-shell-selector/shell
+      name: dsh-shell/shell
       disabled: !!js process.platform === 'win32'
       config:
         timeoutMs: 60000
     - id: selected-windows-shell
-      name: dsh-shell-selector/shell-windows
+      name: dsh-shell/shell-windows
       disabled: !!js process.platform !== 'win32'
       config:
         timeoutMs: 60000
@@ -40,10 +40,10 @@
           - id: pty
             name: '@deepseek-ai/dsh-terminal'
           - id: terminal-selected-shell
-            name: dsh-shell-selector/terminal
+            name: dsh-shell/terminal
             config:
               timeoutMs: 300000
           - id: persistent-selected-shell
-            name: dsh-shell-selector/persistent
+            name: dsh-shell/persistent
             config:
               timeoutMs: 300000
