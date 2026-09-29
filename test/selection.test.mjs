@@ -55,3 +55,18 @@ test('unused shell settings fail instead of being silently ignored', () => {
   assert.throws(() => resolveSelection({ shell: 'auto', shellPath: '/bin/zsh' }, 'darwin'), /shellPath requires/)
   assert.throws(() => resolveSelection({ shell: 'bash', wslDistribution: 'Ubuntu' }, 'darwin'), /requires wsl/)
 })
+
+test('one component serves every Windows selection', () => {
+  assert.deepEqual(resolveSelection({ shell: 'auto' }, 'win32', {}, []), { id: 'auto', dialect: 'pwsh' })
+  const wsl = resolveSelection({ shell: 'wsl' }, 'win32', {}, [{ id: 'wsl', path: 'wsl.exe', distributions: ['Debian'] }])
+  assert.equal(wsl.id, 'wsl')
+  assert.equal(wsl.dialect, 'bash')
+  assert.equal(wsl.distribution, 'Debian')
+})
+
+test('auto keeps the shipped one-shot path on a POSIX host', { skip: process.platform === 'win32' ? 'needs a POSIX host' : false }, () => {
+  const selection = resolveSelection({ shell: 'auto' }, 'darwin', {}, [])
+  assert.equal(selection.id, 'auto')
+  assert.equal(selection.shell, 'bash')
+  assert.equal(selection.dialect, 'bash')
+})
