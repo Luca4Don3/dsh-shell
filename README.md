@@ -1,0 +1,13 @@
+# dsh-shell-selector
+
+Select the shell used by DSH's model-facing one-shot command tool and the Web `minimal` preset's persistent command tool. The plugin targets DSH `0.2.0-rc.1`. `auto` keeps DSH's current default: bash on macOS and Linux, and DSH's own PowerShell resolver on Windows.
+
+On macOS and Linux, the plugin detects bash and zsh. Select `zsh` to start one-shot commands with `zsh -lic` and the persistent PTY with `zsh -li`. The PTY wrappers source the user's original `.zshenv`, `.zprofile`, `.zshrc`, and `.zlogin`, respecting `ZDOTDIR`. Exports from those files, including credential variables, are available to model-invoked shell commands. `shellPath` can point to another installation of the chosen bash or zsh. An explicit `bash` selection starts one-shot commands as an interactive login shell; `auto` preserves DSH's original one-shot `bash -c` behavior.
+
+On Windows, the plugin detects PowerShell 7 (`pwsh7`), Windows PowerShell (`powershell`), and installed WSL distributions (`wsl`). Available shell IDs appear in the DSH plugin configuration selector; available WSL distributions appear in its distribution selector. `wsl` uses Bash inside the selected distribution. Because DSH's Windows sandbox cannot enforce its file boundary inside WSL, WSL commands and persistent sessions **fail explicitly** under `read-only` and `workspace-write`; select DSH's `danger-full-access` mode before using WSL. PowerShell choices continue through DSH's Windows sandbox.
+
+Install this directory from the desktop app's **Plugins** page, then edit the `shell-selector` plugin configuration there. Choose `shell`, optionally set `shellPath` or `wslDistribution`, and start a new agent session to use the selection. The desktop profile is managed by Electron; `dsh plugin --profile desktop` cannot modify it. For a CLI-managed Web profile, run `dsh plugin --profile web add /absolute/path/to/dsh-shell-selector` and edit the `shell-selector` row in that profile's configuration.
+
+The one-shot tool keeps DSH's platform name (`bash` on POSIX, `pwsh` on Windows), while its system guidance states the selected syntax. The persistent tool uses the Bash implementation for bash, zsh, and WSL, and the PowerShell implementation for PowerShell. This bundle restates the shipped `minimal` preset because DSH patch layers replace a row's entire `config`; compare that row after a DSH upgrade. Other Web presets use the one-shot executor. The manual terminal panel has its own shell selector.
+
+Windows behavior has been reviewed against the DSH `0.2.0-rc.1` source, but a Windows host was not available for an end-to-end run. macOS one-shot zsh and persistent zsh were exercised against the installed DSH RC in an isolated test profile.
