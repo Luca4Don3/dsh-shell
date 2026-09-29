@@ -1,0 +1,49 @@
+# Replace DSH's platform-specific one-shot executor with the selected shell.
+- id: bash-sandbox
+  disabled: true
+- id: pwsh-sandbox
+  disabled: true
+- insert:
+    - id: shell-selector
+      name: dsh-shell-selector
+      config:
+        shell: auto
+    - id: selected-posix-shell
+      name: dsh-shell-selector/shell
+      disabled: !!js process.platform === 'win32'
+      config:
+        timeoutMs: 60000
+    - id: selected-windows-shell
+      name: dsh-shell-selector/shell-windows
+      disabled: !!js process.platform !== 'win32'
+      config:
+        timeoutMs: 60000
+
+# DSH replaces a row's entire config, so this restates the shipped minimal preset.
+- id: preset-minimal
+  config:
+    id: minimal
+    order: 3
+    plugins:
+      - id: persona
+        name: '@deepseek-ai/dsh-persona'
+        config:
+          prefix: You are a helpful software engineer assistant.
+          complete: true
+          includeRuntimeContext: false
+      - id: persistent-shell
+        name: cordis:group
+        group: true
+        isolate:
+          terminals: true
+        config:
+          - id: pty
+            name: '@deepseek-ai/dsh-terminal'
+          - id: terminal-selected-shell
+            name: dsh-shell-selector/terminal
+            config:
+              timeoutMs: 300000
+          - id: persistent-selected-shell
+            name: dsh-shell-selector/persistent
+            config:
+              timeoutMs: 300000

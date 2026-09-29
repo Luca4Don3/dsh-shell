@@ -1,0 +1,8 @@
+.temp/
+.pnpm-store/
+node_modules/
+.zsh_history
+*.tgz
+*.log
+.env
+.env.*
