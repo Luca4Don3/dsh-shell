@@ -1,4 +1,5 @@
 import { SandboxBashExecutor } from '@deepseek-ai/dsh-bash-sandbox'
+import { SelectedWindowsExecutor } from './shell-windows.mjs'
 
 export function quoteForBash(value) {
   if (value.includes('\0')) throw new TypeError('shell command cannot contain NUL')
@@ -20,4 +21,4 @@ export class SelectedPosixExecutor extends SandboxBashExecutor {
   }
 }
 
-export default SelectedPosixExecutor
+export default process.platform === 'win32' ? SelectedWindowsExecutor : SelectedPosixExecutor
