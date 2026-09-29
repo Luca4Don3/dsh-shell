@@ -1,6 +1,6 @@
 # dsh-shell
 
-English | [中文](README.zh-CN.md)
+[English](README.md) | 中文
 
 ## 概述
 
