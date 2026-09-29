@@ -15,7 +15,7 @@ export const Config = z.object({
 class ShellSelection extends Service {
   constructor(ctx, config) {
     super(ctx, 'shellSelection')
-    this.selected = resolveSelection(config)
+    this.selected = resolveSelection(config, process.platform, process.env, installedShells)
     this.available = installedShells
   }
 }

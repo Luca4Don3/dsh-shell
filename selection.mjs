@@ -36,7 +36,10 @@ function windowsPrograms(env) {
 
 export function detectWslDistributions(wsl, run = spawnSync) {
   if (!wsl) return []
-  const result = run(wsl, ['--list', '--quiet'], { encoding: 'buffer', timeout: 3000, windowsHide: true })
+  // Discovery must not launch a distribution before DSH checks its sandbox mode.
+  const status = run(wsl, ['--status'], { timeout: 3000, windowsHide: true, stdio: 'ignore' })
+  if (status.error || status.status !== 0) return []
+  const result = run(wsl, ['--list', '--quiet'], { timeout: 3000, windowsHide: true })
   if (result.error || result.status !== 0) return []
   const bytes = result.stdout ?? Buffer.alloc(0)
   const output = bytes.includes(0) ? bytes.toString('utf16le') : bytes.toString('utf8')
@@ -59,7 +62,7 @@ export function detectInstalledShells(platform = process.platform, env = process
   })
 }
 
-export function resolveSelection(config, platform = process.platform, env = process.env) {
+export function resolveSelection(config, platform = process.platform, env = process.env, installedShells) {
   const requested = config.shell ?? 'auto'
   if (requested === 'auto' && config.shellPath) throw new Error('dsh-shell: shellPath requires an explicit shell selection')
   if (requested !== 'wsl' && config.wslDistribution) throw new Error('dsh-shell: wslDistribution requires wsl')
@@ -81,11 +84,12 @@ export function resolveSelection(config, platform = process.platform, env = proc
     return { id, dialect: 'pwsh', path }
   }
   if (id === 'wsl') {
-    const distributions = detectWslDistributions(found.wsl)
-    if (!distributions.length) throw new Error('dsh-shell: WSL has no installed distribution')
-    const distribution = config.wslDistribution || undefined
-    if (distribution && !distributions.includes(distribution)) throw new Error(`dsh-shell: WSL distribution ${JSON.stringify(distribution)} is not installed`)
-    return { id, dialect: 'bash', path: found.wsl, distribution }
+    const wsl = (installedShells ?? detectInstalledShells(platform, env)).find(item => item.id === 'wsl')
+    const distributions = wsl?.distributions ?? []
+    if (!distributions.length) throw new Error('dsh-shell: WSL is unavailable or has no installed distribution')
+    const distribution = config.wslDistribution || distributions[0]
+    if (!distributions.includes(distribution)) throw new Error(`dsh-shell: WSL distribution ${JSON.stringify(distribution)} is not installed`)
+    return { id, dialect: 'bash', path: wsl.path, distribution }
   }
   throw new Error(`dsh-shell: unsupported shell ${JSON.stringify(id)}`)
 }

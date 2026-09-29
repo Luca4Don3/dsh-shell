@@ -3,15 +3,47 @@ import { test } from 'node:test'
 import { detectWslDistributions, resolveSelection } from '../selection.mjs'
 
 test('WSL detection decodes the UTF-16 output used by wsl.exe', () => {
-  const distributions = detectWslDistributions('wsl.exe', () => ({
-    status: 0,
-    stdout: Buffer.from('Ubuntu\r\nDebian\r\nUbuntu\r\n', 'utf16le'),
-  }))
+  const calls = []
+  const distributions = detectWslDistributions('wsl.exe', (_program, args) => {
+    calls.push(args)
+    return args[0] === '--list'
+      ? { status: 0, stdout: Buffer.from('Ubuntu\r\nDebian\r\nUbuntu\r\n', 'utf16le') }
+      : { status: 0 }
+  })
   assert.deepEqual(distributions, ['Ubuntu', 'Debian'])
+  assert.deepEqual(calls, [['--status'], ['--list', '--quiet']])
 })
 
-test('WSL detection does not advertise a failed installation query', () => {
-  assert.deepEqual(detectWslDistributions('wsl.exe', () => ({ status: 1, stdout: Buffer.alloc(0) })), [])
+test('WSL detection hides the option when installation status fails', () => {
+  const calls = []
+  assert.deepEqual(detectWslDistributions('wsl.exe', (_program, args) => {
+    calls.push(args)
+    return { status: 1 }
+  }), [])
+  assert.deepEqual(calls, [['--status']])
+})
+
+test('WSL detection hides the option when the distribution query fails or is empty', () => {
+  const distributions = detectWslDistributions('wsl.exe', (_program, args) => {
+    if (args[0] === '--status') return { status: 0 }
+    return { status: 1, stdout: Buffer.alloc(0) }
+  })
+  assert.deepEqual(distributions, [])
+  assert.deepEqual(detectWslDistributions('wsl.exe', (_program, args) => args[0] === '--status'
+    ? { status: 0 }
+    : { status: 0, stdout: Buffer.alloc(0) }), [])
+})
+
+test('WSL detection hides a timed-out status check', () => {
+  const distributions = detectWslDistributions('wsl.exe', () => ({ status: null, error: new Error('ETIMEDOUT') }))
+  assert.deepEqual(distributions, [])
+})
+
+test('WSL selection uses a detected distribution and rejects an absent one', () => {
+  const available = [{ id: 'wsl', path: 'wsl.exe', distributions: ['Debian'] }]
+  assert.equal(resolveSelection({ shell: 'wsl' }, 'win32', {}, available).distribution, 'Debian')
+  assert.throws(() => resolveSelection({ shell: 'wsl', wslDistribution: 'Ubuntu' }, 'win32', {}, available), /not installed/)
+  assert.throws(() => resolveSelection({ shell: 'wsl' }, 'win32', {}, []), /unavailable/)
 })
 
 test('platform-incompatible selections fail before launching a command', () => {
