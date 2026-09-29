@@ -11,7 +11,8 @@ Chooses the shell DSH uses for the model-facing **one-shot command tool** and th
 | Platform | Options | One-shot tool | Persistent tool |
 | --- | --- | --- | --- |
 | macOS / Linux | `bash`, `zsh` | `bash` | `bash` |
-| Windows | `pwsh7`, `powershell`, `wsl` | `pwsh` | `pwsh` |
+| Windows | `pwsh7`, `powershell` | `pwsh` | `pwsh` |
+| Windows with WSL | `wsl` | `pwsh` (Bash syntax) | `bash` |
 
 ### `auto`
 
@@ -34,15 +35,15 @@ Chooses the shell DSH uses for the model-facing **one-shot command tool** and th
 
 ## Configuration
 
-Edit the `dsh-shell` row on the **Plugins** page:
+Open the `dsh-shell` bundle details on the **Plugins** page. The selector lists only supported shells detected on this host; choose one, choose a WSL distribution when applicable, and save.
 
 | Field | Meaning |
 | --- | --- |
 | `shell` | `auto`, or a shell id from the table above |
-| `shellPath` | Another executable for the chosen shell (not with `auto` or `wsl`) |
+| `shellPath` | Optional executable path in the profile patch (not with `auto` or `wsl`) |
 | `wslDistribution` | WSL distribution name; defaults to the first listed by `wsl.exe` |
 
-Start a new session after configuring, to apply the selection.
+Restart DSH and start a new session to apply the selection.
 
 ## Tool routing
 
@@ -62,7 +63,7 @@ The one-shot tool keeps DSH's platform name (`bash` on POSIX, `pwsh` on Windows)
 
 ## Install
 
-Desktop: add this directory from the **Plugins** page, configure the `dsh-shell` row, then start a new session.
+Desktop: add this directory from the **Plugins** page, open its bundle details, save a shell choice, then restart DSH and start a new session.
 
 CLI-managed Web profile:
 

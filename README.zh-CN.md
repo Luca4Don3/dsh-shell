@@ -11,7 +11,8 @@
 | 平台 | 可选值 | 一次性工具 | 持久工具 |
 | --- | --- | --- | --- |
 | macOS / Linux | `bash`、`zsh` | `bash` | `bash` |
-| Windows | `pwsh7`、`powershell`、`wsl` | `pwsh` | `pwsh` |
+| Windows | `pwsh7`、`powershell` | `pwsh` | `pwsh` |
+| 已安装 WSL 的 Windows | `wsl` | `pwsh`（Bash 语法） | `bash` |
 
 ### `auto`
 
@@ -34,15 +35,15 @@
 
 ## 配置
 
-在 **Plugins** 页面编辑 `dsh-shell` 行：
+在 **Plugins** 页面打开 `dsh-shell` 插件详情，从本机已安装且插件支持的 Shell 中选择；使用 WSL 时再选发行版，然后保存。
 
 | 字段 | 含义 |
 | --- | --- |
 | `shell` | `auto`，或上表中的 shell id |
-| `shellPath` | 所选 shell 的另一处可执行文件（不可与 `auto`、`wsl` 同用） |
+| `shellPath` | 可在 profile patch 中指定的可执行文件路径（不可与 `auto`、`wsl` 同用） |
 | `wslDistribution` | WSL 发行版名，默认取 `wsl.exe` 列出的第一个 |
 
-配置完成后新建会话即可生效。
+保存后重启 DSH，再新建会话生效。
 
 ## 工具路由
 
@@ -62,7 +63,7 @@
 
 ## 安装
 
-桌面端：在 **Plugins** 页面添加本插件目录，配置 `dsh-shell` 行，然后新建会话。
+桌面端：在 **Plugins** 页面添加本插件目录，进入详情页选择并保存 Shell，再重启 DSH、新建会话。
 
 CLI 管理的 Web profile：
 

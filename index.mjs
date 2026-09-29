@@ -7,15 +7,23 @@ export const inject = ['systemPrompt']
 const installedShells = detectInstalledShells()
 const wslDistributions = installedShells.find(item => item.id === 'wsl')?.distributions ?? []
 export const Config = z.object({
-  shell: z.union(['auto', ...installedShells.map(item => item.id)]).default('auto'),
-  shellPath: z.string().required(false),
-  wslDistribution: (wslDistributions.length ? z.union(wslDistributions) : z.string()).required(false),
+  shell: z.union(['auto', ...installedShells.map(item => item.id)]).default('auto').volatile(),
+  shellPath: z.string().required(false).volatile(),
+  wslDistribution: (wslDistributions.length ? z.union(wslDistributions) : z.string()).required(false).volatile(),
 })
+
+function current(value) {
+  return typeof value?.get === 'function' ? value.get() : value
+}
 
 class ShellSelection extends Service {
   constructor(ctx, config) {
     super(ctx, 'shellSelection')
-    this.selected = resolveSelection(config, process.platform, process.env, installedShells)
+    this.selected = resolveSelection({
+      shell: current(config.shell),
+      shellPath: current(config.shellPath),
+      wslDistribution: current(config.wslDistribution),
+    }, process.platform, process.env, installedShells)
     this.available = installedShells
   }
 }

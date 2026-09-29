@@ -11,9 +11,32 @@ export const Config = z.object({
   description: z.string().required(false),
 })
 
+function defaultDescription(selection) {
+  if (selection.dialect === 'pwsh') return [
+    'Run commands in a persistent PowerShell shell.',
+    '* The "command" parameter does NOT need to be XML-escaped.',
+    "* You don't have access to the internet via this tool.",
+    '* State is persistent across command calls and discussions with the user.',
+    '* Use native Windows paths (C:\\...) and $env:NAME variables; this is PowerShell, not bash.',
+    '* Please avoid commands that may produce a very large amount of output.',
+    "* Please run long lived commands in the background, e.g. 'Start-Job' or start a server with Start-Process.",
+  ].join('\n')
+
+  const shell = selection.id === 'wsl' ? 'bash shell inside WSL' : `${selection.shell ?? 'bash'} shell`
+  return [
+    `Run commands in a persistent ${shell}. The tool is named bash for DSH compatibility.`,
+    '* The "command" parameter does NOT need to be XML-escaped.',
+    '* Network access depends on the task environment. Prefer configured mirrors/proxies when they are available.',
+    '* State is persistent across command calls and discussions with the user.',
+    "* To inspect a particular line range of a file, e.g. lines 10-25, try 'sed -n 10,25p /path/to/the/file'.",
+    '* Please avoid commands that may produce a very large amount of output.',
+    "* Please run long lived commands in the background, e.g. 'sleep 10 &' or start a server in the background.",
+  ].join('\n')
+}
+
 export function apply(ctx, config) {
   const selection = ctx.shellSelection.selected
-  const description = config.description || `Run commands in a persistent ${selection.id === 'auto' ? (process.platform === 'win32' ? 'PowerShell' : 'bash') : selection.id} shell. State persists across calls. Use ${selection.dialect === 'pwsh' ? 'PowerShell' : 'Bash-compatible'} syntax.`
+  const description = config.description || defaultDescription(selection)
   const plugin = selection.dialect === 'pwsh' ? PwshPersistent : BashPersistent
   plugin.apply(ctx, { ...config, description })
 }

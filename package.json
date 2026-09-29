@@ -1,12 +1,13 @@
 {
   "name": "dsh-shell",
   "description": "Select the shell for DSH agent commands and persistent terminals",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "main": "./index.mjs",
   "exports": {
     ".": "./index.mjs",
+    "./client": "./client.js",
     "./shell": "./shell.mjs",
     "./shell-windows": "./shell-windows.mjs",
     "./terminal": "./terminal.mjs",
@@ -14,6 +15,7 @@
     "./package.json": "./package.json"
   },
   "files": [
+    "client.js",
     "index.mjs",
     "selection.mjs",
     "shell.mjs",
@@ -28,18 +30,17 @@
     "README.md",
     "README.zh-CN.md"
   ],
-  "peerDependencies": {
-    "@deepseek-ai/cordis": "4.0.4",
-    "@deepseek-ai/dsh-bash-sandbox": "0.2.0-rc.1",
-    "@deepseek-ai/dsh-pwsh-sandbox": "0.2.0-rc.1",
-    "@deepseek-ai/dsh-terminal-bash": "0.2.0-rc.1",
-    "@deepseek-ai/dsh-tool-bash-persistent": "0.2.0-rc.1",
-    "@deepseek-ai/dsh-tool-pwsh-persistent": "0.2.0-rc.1",
-    "@deepseek-ai/schemastery": "3.18.4"
-  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-plugin-manager"
+      ],
+      "platform": "web"
     }
   }
 }
