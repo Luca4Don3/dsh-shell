@@ -2,68 +2,35 @@
 
 [English](README.md) | 中文
 
-## 概述
+在 DSH 界面选择模型命令与 `minimal` 持久终端使用的 Shell。适配 DSH `0.2.0-rc.1`，`auto` 保持 DSH 原有默认值。
 
-指定 DSH 面向模型的**一次性命令工具**与 `minimal` 预设**持久命令工具**所用的 Shell。插件适配 DSH `0.2.0-rc.1`。
+## 支持环境
 
-## 可选 Shell
-
-| 平台 | 可选值 | 一次性工具 | 持久工具 |
-| --- | --- | --- | --- |
-| macOS / Linux | `bash`、`zsh` | `bash` | `bash` |
-| Windows | `pwsh7`、`powershell` | `pwsh` | `pwsh` |
-| 已安装 WSL 的 Windows | `wsl` | `pwsh`（Bash 语法） | `bash` |
-
-### `auto`
-
-`auto` 保持 DSH 的现有默认值：macOS / Linux 上为 bash，Windows 上为 DSH 自带的 PowerShell 解析器。
-
-### macOS / Linux
-
-- 显式选择 `zsh`：一次性命令以 `zsh -lic` 启动，持久终端以 `zsh -li` 启动。
-- 显式选择 `bash`：一次性命令以交互式登录 Shell（`bash -lic`）启动。
-- 选择 `auto`：一次性命令保持 DSH 原始的 `bash -c` 行为。
-- 持久终端会先 source 你原有的 `.zshenv`、`.zprofile`、`.zshrc`、`.zlogin`（遵循你自己的 `ZDOTDIR`），其中的导出变量（含凭据类变量）因此对模型调用的命令可见。
-
-### Windows
-
-- 插件检测 PowerShell 7（`pwsh7`）、Windows PowerShell（`powershell`）与 WSL（`wsl`）。
-- 仅当 `wsl.exe --status` 成功、且 `wsl.exe --list --quiet` 至少列出一个发行版时，`wsl` 才会出现在配置项中。
-- 未显式指定发行版时使用列表中的第一个；安装新发行版后需重启 DSH 以刷新可选项。
-- PowerShell 选择继续经由 DSH 的 Windows 沙箱执行；`wsl` 不行，见[已知限制](#已知限制)。
-- `bash` 与 `zsh` 仅适用于 POSIX 主机，Windows 上请改选 `wsl`。
-
-## 配置
-
-在 **Plugins** 页面打开 `dsh-shell` 插件详情，从本机已安装且插件支持的 Shell 中选择；使用 WSL 时再选发行版，然后保存。
-
-| 字段 | 含义 |
+| 平台 | 可选环境 |
 | --- | --- |
-| `shell` | `auto`，或上表中的 shell id |
-| `shellPath` | 可在 profile patch 中指定的可执行文件路径（不可与 `auto`、`wsl` 同用） |
-| `wslDistribution` | WSL 发行版名，默认取 `wsl.exe` 列出的第一个 |
+| macOS / Linux | Bash、Zsh、sh、dash、ksh、mksh、ash、fish、csh、tcsh |
+| Windows | PowerShell 7、Windows PowerShell、Git Bash、MSYS2、Cygwin、WSL |
 
-保存后重启 DSH，再新建会话生效。
+只展示支持且检测到的安装，同类多安装分别列出路径。检测常见目录、`PATH`、`/etc/shells`（POSIX）、Git 注册表，以及 `MSYS2_ROOT` / `CYGWIN_ROOT` 指定的目录。
 
-## 工具路由
+WSL 可选择不同发行版，显示 WSL 1／2、状态与默认标记 `★`。兼容不支持 `--status` 的旧版 CLI；无法读取版本时显示 `?`，未知新版本标注未验证。WSL 3 专项适配暂缓。
 
-| 选择 | 一次性工具 | 持久工具 |
-| --- | --- | --- |
-| `bash`、`zsh`、`wsl` | Bash 实现 | Bash 实现 |
-| `pwsh7`、`powershell` | PowerShell 实现 | PowerShell 实现 |
+## 使用
 
-一次性工具沿用 DSH 的平台名（POSIX 上为 `bash`，Windows 上为 `pwsh`），其系统提示中会写明所选语法。持久工具的描述同样会写明所选 Shell 与语法。其余 Web 预设只使用一次性执行器。
+在 **Plugins → dsh-shell** 详情页选择 Shell；使用 WSL 时选择发行版，然后保存、重启 DSH、新建会话。安装新环境后同样需要重启以刷新列表。
 
-## 已知限制
+- Zsh 加载用户 `.zshenv`、`.zprofile`、`.zshrc`、`.zlogin`，遵循 `ZDOTDIR`。
+- POSIX 先加载本机原 Shell（`SHELL` 或账户默认 Shell）的配置，再启动所选 Shell，继承已导出的环境变量；所选 Shell 也加载自己的配置。`auto` 仍使用 DSH 默认 Shell，补充原 Shell 的环境。别名和未导出的变量不跨 Shell 继承。
+- Windows Bash 加载登录配置和用户 `.bashrc`；执行前检查 Bash 能力，失败会明确报错。
+- Windows Shell 继承 DSH 可转发的本机环境。WSL 继承自定义变量，Windows PATH 转换、去重后追加至 Linux PATH，保留发行版的 HOME；保留 DSH 原有的敏感变量过滤。
+- 一次性工具沿用平台名称：POSIX 为 `bash`，Windows 为 `pwsh`，描述与实际语法一致。`minimal` 的持久工具按方言使用 `bash` 或 `pwsh`。
+- Windows Bash 的命令使用 POSIX 路径；`workdir` 使用 Windows 路径，由 `wslpath`／`cygpath` 转换。Linux 目录可在命令中使用 `cd`。
 
-- WSL 不受 DSH 的 Windows 沙箱约束。WSL 下的命令与持久会话在 `read-only`、`workspace-write` 下会**显式失败**，需先切到 `danger-full-access`。
-- 本 bundle 重述了内置 `minimal` preset，因为 DSH 的 patch 层按 id 整行替换 `config`。DSH 升级后请核对该行。
-- 手动终端面板使用自己的 Shell 选择器，不受本插件影响。
-- 桌面 profile 由 Electron 管理，`dsh plugin --profile desktop` 无法修改它。
+高级配置：`shellPath` 可在 profile patch 中覆盖已检测到的同类 Shell 路径，不能与 `auto`、`wsl` 同用。未指定 WSL 发行版时使用已识别的默认值；多个发行版且默认值未知时必须明确选择。
 
 ## 安装
 
-桌面端：在 **Plugins** 页面添加本插件目录，进入详情页选择并保存 Shell，再重启 DSH、新建会话。
+桌面端：在 **Plugins** 页面添加插件目录。
 
 CLI 管理的 Web profile：
 
@@ -71,9 +38,10 @@ CLI 管理的 Web profile：
 dsh plugin --profile web add /absolute/path/to/dsh-shell
 ```
 
-随后在该 profile 的配置中编辑 `dsh-shell` 行。
+## 限制与验证
 
-## 验证状态
-
-- macOS：一次性 zsh 与持久 zsh 已在隔离 profile 中对已安装的 DSH RC 实测通过。
-- Windows：仅对照 DSH `0.2.0-rc.1` 源码审查，没有真机端到端验证。
+- WSL 只允许 `danger-full-access`，在受限沙箱模式下明确失败；原生 Windows Shell 继续经过 DSH 沙箱。
+- 内置 `standard`、`ptc`、`cordis` 预设使用工具适配器；自定义预设可使用 `dsh-shell/tool-posix`、`dsh-shell/tool-windows` 或 `dsh-shell/preset`。
+- `minimal` 的配置仍是整行覆盖，DSH 升级后需核对。手动终端面板使用自己的选择器。
+- 本机 Bash、Zsh、sh、dash、ksh、csh、tcsh 已用隔离配置实测；fish、mksh、ash 尚无本机启动验证。Windows / WSL 通过模拟及隔离 Bash 测试，**尚未真机验收**，包括 WSL 进程取消与清理。
+- `npm test` 需要 Node.js 24；POSIX PTY 测试另需 Python 3，插件运行不需要。CI 覆盖 macOS（安装 fish）与 Windows，尚未执行远端 CI。

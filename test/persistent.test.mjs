@@ -8,7 +8,10 @@ const mocks = {
     export default { object: () => ({}), string: () => field, number: () => field }
   `,
   '@deepseek-ai/dsh-tool-bash-persistent': `
-    export const apply = (_ctx, config) => globalThis.__persistentCalls.push({ dialect: 'bash', config })
+    export const apply = (ctx, config) => {
+      ctx.tools.register(globalThis.__persistentDefinition)
+      globalThis.__persistentCalls.push({ dialect: 'bash', config })
+    }
   `,
   '@deepseek-ai/dsh-tool-pwsh-persistent': `
     export const apply = (_ctx, config) => globalThis.__persistentCalls.push({ dialect: 'pwsh', config })
@@ -22,7 +25,11 @@ registerHooks({
   },
 })
 globalThis.__persistentCalls = []
+globalThis.__persistentDefinition = { name: 'bash', execute() {}, parameters: { properties: { command: { type: 'string' } } } }
 const { apply } = await import('../persistent.mjs')
+function context(selection, registered = []) {
+  return { shellSelection: { selected: selection }, tools: { register: definition => registered.push(definition) } }
+}
 
 test('bash, zsh and WSL retain the shipped persistent-tool guidance', () => {
   for (const selection of [
@@ -30,7 +37,7 @@ test('bash, zsh and WSL retain the shipped persistent-tool guidance', () => {
     { id: 'zsh', dialect: 'bash', shell: 'zsh' },
     { id: 'wsl', dialect: 'bash' },
   ]) {
-    apply({ shellSelection: { selected: selection } }, {})
+    apply(context(selection), {})
     const { dialect, config } = globalThis.__persistentCalls.pop()
     assert.equal(dialect, 'bash')
     for (const phrase of ['XML-escaped', 'mirrors/proxies', 'State is persistent', 'sed -n', 'large amount of output', 'background']) {
@@ -38,6 +45,18 @@ test('bash, zsh and WSL retain the shipped persistent-tool guidance', () => {
     }
     if (selection.id === 'wsl') assert.match(config.description, /inside WSL/)
     if (selection.id === 'zsh') assert.match(config.description, /persistent zsh shell/)
+  }
+})
+
+test('persistent fish, C shell and POSIX parameters describe their syntax while retaining execution', () => {
+  for (const shell of ['fish', 'tcsh', 'dash']) {
+    const registered = []
+    apply(context({ id: shell, shell, dialect: shell === 'tcsh' ? 'csh' : shell === 'dash' ? 'posix' : 'fish' }, registered), {})
+    assert.equal(registered[0].execute, globalThis.__persistentDefinition.execute)
+    assert.equal(registered[0].name, 'bash')
+    assert.ok(registered[0].parameters.properties.command.description.includes(shell))
+    const { config } = globalThis.__persistentCalls.pop()
+    assert.match(config.description, new RegExp(`persistent ${shell} shell`))
   }
 })
 

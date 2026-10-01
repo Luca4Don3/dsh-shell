@@ -3,6 +3,10 @@
   disabled: true
 - id: pwsh-sandbox
   disabled: true
+- id: tool-pwsh
+  name: dsh-shell/tool-windows
+- id: tool-bash
+  name: dsh-shell/tool-posix
 - insert:
     - id: dsh-shell
       name: dsh-shell
@@ -12,6 +16,14 @@
       name: dsh-shell/shell
       config:
         timeoutMs: 60000
+
+# Adapt scoped one-shot registrations without restating preset configurations.
+- id: preset-standard
+  name: dsh-shell/preset
+- id: preset-ptc
+  name: dsh-shell/preset
+- id: preset-cordis
+  name: dsh-shell/preset
 
 # DSH replaces a row's entire config, so this restates the shipped minimal preset.
 - id: preset-minimal

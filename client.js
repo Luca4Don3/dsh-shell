@@ -17,6 +17,7 @@ window.__ModuleLoader__.load({
       save: 'Save',
       saving: 'Saving…',
       saved: 'Saved. Restart DSH and start a new session to use this shell.',
+      reloaded: 'The selection was rejected. Settings have been reloaded; select again and retry.',
       failed: 'The selection could not be saved. Check the current profile and try again.',
     }
     const zh = {
@@ -30,18 +31,26 @@ window.__ModuleLoader__.load({
       save: '保存',
       saving: '保存中…',
       saved: '已保存。重启 DSH 并新建会话后使用所选 Shell。',
+      reloaded: '保存未被接受，已重新读取配置。请重新选择后重试。',
       failed: '未能保存选择。请检查当前 profile 后重试。',
     }
 
-    function choices(schema, field) {
+    function options(schema, field) {
       const refs = schema?.refs
       const root = refs?.[schema.uid]
       const union = refs?.[root?.dict?.[field]]
       if (union?.type !== 'union') return []
       return union.list.flatMap((id) => {
         const option = refs[id]
-        return option?.type === 'const' && typeof option.value === 'string' ? [option.value] : []
+        if (option?.type !== 'const' || typeof option.value !== 'string') return []
+        const description = option.meta?.description
+        const label = typeof description === 'string' ? description : description?.en ?? option.value
+        return [{ value: option.value, label }]
       })
+    }
+
+    function choices(schema, field) {
+      return options(schema, field).map(option => option.value)
     }
 
     function operations(base, draft, shellOptions, distributions) {
@@ -75,8 +84,10 @@ window.__ModuleLoader__.load({
         const state = React.useSyncExternalStore(subscribeForm, readForm)
         const document = React.useSyncExternalStore(subscribeMirror, readMirror)
         const schema = document.view?.namespaces.find((row) => row.ns === entryId)?.schema
-        const shellOptions = choices(schema, 'shell')
-        const distributions = choices(schema, 'wslDistribution')
+        const shellItems = options(schema, 'shell')
+        const shellOptions = shellItems.map(item => item.value)
+        const distributionItems = options(schema, 'wslDistribution')
+        const distributions = distributionItems.map(item => item.value)
         const [draft, setDraft] = React.useState(null)
         const [saving, setSaving] = React.useState(false)
         const [message, setMessage] = React.useState('')
@@ -110,7 +121,8 @@ window.__ModuleLoader__.load({
           try {
             const accepted = await form.mutate(edits, draft.revision)
             if (!accepted) {
-              setMessage(t('failed'))
+              setDraft(null)
+              setMessage(t('reloaded'))
               return
             }
             setDraft(null)
@@ -134,7 +146,7 @@ window.__ModuleLoader__.load({
                 wslDistribution: shell === 'wsl' ? draft.wslDistribution || distributions[0] || '' : '' })
               setMessage('')
             },
-          }, shellOptions.map((shell) => h('option', { key: shell, value: shell }, shell)))),
+          }, shellItems.map(({ value, label }) => h('option', { key: value, value }, label)))),
           draft.shell === 'wsl' && distributions.length > 0
             ? h('label', { style: fieldStyle }, t('distribution'), h('select', {
               value: draft.wslDistribution,
@@ -144,7 +156,7 @@ window.__ModuleLoader__.load({
                 setDraft({ ...draft, wslDistribution: event.target.value })
                 setMessage('')
               },
-            }, distributions.map((name) => h('option', { key: name, value: name }, name))))
+            }, distributionItems.map(({ value, label }) => h('option', { key: value, value }, label))))
             : null,
           !state.writable ? h('p', { role: 'status' }, t('readOnly')) : null,
           h('div', null, h('button', { type: 'button', disabled: !canSave, onClick: save }, t(saving ? 'saving' : 'save'))),
@@ -159,6 +171,6 @@ window.__ModuleLoader__.load({
         }, ShellConfigPage))))
     }
 
-    return { apply, inject, choices, operations }
+    return { apply, inject, choices, options, operations }
   },
 })

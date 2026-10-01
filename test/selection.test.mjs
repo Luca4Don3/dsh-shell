@@ -2,41 +2,24 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { detectWslDistributions, resolveSelection } from '../selection.mjs'
 
-test('WSL detection decodes the UTF-16 output used by wsl.exe', () => {
+test('WSL detection supports a CLI without --status and decodes UTF-16 names', () => {
   const calls = []
   const distributions = detectWslDistributions('wsl.exe', (_program, args) => {
     calls.push(args)
-    return args[0] === '--list'
-      ? { status: 0, stdout: Buffer.from('Ubuntu\r\nDebian\r\nUbuntu\r\n', 'utf16le') }
-      : { status: 0 }
+    if (args[1] === '--quiet') return { status: 0, stdout: Buffer.from('Ubuntu\r\nDebian\r\nUbuntu\r\n', 'utf16le') }
+    return { status: 1, stderr: Buffer.from('Invalid command line option') }
   })
   assert.deepEqual(distributions, ['Ubuntu', 'Debian'])
-  assert.deepEqual(calls, [['--status'], ['--list', '--quiet']])
+  assert.deepEqual(calls, [['--list', '--quiet'], ['--list', '--verbose'], ['--help']])
 })
 
-test('WSL detection hides the option when installation status fails', () => {
-  const calls = []
-  assert.deepEqual(detectWslDistributions('wsl.exe', (_program, args) => {
-    calls.push(args)
-    return { status: 1 }
-  }), [])
-  assert.deepEqual(calls, [['--status']])
-})
-
-test('WSL detection hides the option when the distribution query fails or is empty', () => {
-  const distributions = detectWslDistributions('wsl.exe', (_program, args) => {
-    if (args[0] === '--status') return { status: 0 }
-    return { status: 1, stdout: Buffer.alloc(0) }
-  })
-  assert.deepEqual(distributions, [])
-  assert.deepEqual(detectWslDistributions('wsl.exe', (_program, args) => args[0] === '--status'
-    ? { status: 0 }
-    : { status: 0, stdout: Buffer.alloc(0) }), [])
-})
-
-test('WSL detection hides a timed-out status check', () => {
-  const distributions = detectWslDistributions('wsl.exe', () => ({ status: null, error: new Error('ETIMEDOUT') }))
-  assert.deepEqual(distributions, [])
+test('WSL detection hides the option when distribution queries fail, time out or are empty', () => {
+  for (const result of [
+    { status: 1 },
+    { status: null, error: new Error('ETIMEDOUT') },
+    { status: 0, stdout: Buffer.alloc(0) },
+  ]) assert.deepEqual(detectWslDistributions('wsl.exe', () => result), [])
+  assert.deepEqual(detectWslDistributions(undefined), [])
 })
 
 test('WSL selection uses a detected distribution and rejects an absent one', () => {

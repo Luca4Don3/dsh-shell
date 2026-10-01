@@ -1,9 +1,10 @@
 import { SandboxBashExecutor } from '@deepseek-ai/dsh-bash-sandbox'
 import { SelectedWindowsExecutor } from './shell-windows.mjs'
+import { quoteBash } from './bash-runtime.mjs'
+import { inheritPosixEnvironment, posixShellArgs } from './posix-runtime.mjs'
 
 export function quoteForBash(value) {
-  if (value.includes('\0')) throw new TypeError('shell command cannot contain NUL')
-  return `'${value.replaceAll("'", "'\\''")}'`
+  return quoteBash(value)
 }
 
 export class SelectedPosixExecutor extends SandboxBashExecutor {
@@ -16,8 +17,11 @@ export class SelectedPosixExecutor extends SandboxBashExecutor {
 
   async execute(spec) {
     const { shell, path } = this.selection
-    if (shell === 'bash' && this.selection.id === 'auto') return super.execute(spec)
-    return super.execute({ ...spec, command: `exec ${quoteForBash(path)} -lic ${quoteForBash(spec.command)}` })
+    if (shell === 'bash' && this.selection.id === 'auto' && !this.selection.environmentShell) return super.execute(spec)
+    const target = this.selection.id === 'auto' ? ['bash', '-c', spec.command]
+      : [path, ...posixShellArgs(this.selection, spec.command, spec.workdir)]
+    const argv = inheritPosixEnvironment(target, this.selection, spec.workdir)
+    return super.execute({ ...spec, command: `exec ${argv.map(quoteForBash).join(' ')}` })
   }
 }
 

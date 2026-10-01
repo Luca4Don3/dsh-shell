@@ -1,19 +1,31 @@
-import { dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { homedir } from 'node:os'
-import { BashTerminalBackend, Config as TerminalConfig } from '@deepseek-ai/dsh-terminal-bash'
-import { quoteForBash } from './shell.mjs'
-
-const startupDirectory = dirname(fileURLToPath(import.meta.url))
+import { apply as applyTerminal, BashTerminalBackend, Config as TerminalConfig } from '@deepseek-ai/dsh-terminal-bash'
+import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
+import { assertBashPolicy, bashRuntimeArgv, isWindowsBash, runtimeEnvironment } from './bash-runtime.mjs'
+import { inheritPosixEnvironment, initializePosixSession, posixShellArgs } from './posix-runtime.mjs'
 
 export const name = 'terminal-selected-shell'
-export const inject = ['terminals', 'sandboxPolicy', 'sessionProjections', 'subprocess', 'shellSelection']
+export const inject = ['terminals', 'sandboxPolicy', 'sessionProjections', 'subprocess', 'shellSelection', 'shell']
 export const Config = TerminalConfig
 
 class SelectedTerminalBackend extends BashTerminalBackend {
   async spawn(spec) {
-    if (this.selection.id === 'wsl' && this.ctx.sandboxPolicy.resolve({ session: spec.owner.session }).mode !== 'danger-full-access') {
-      throw new Error('dsh-shell: WSL cannot be confined by the DSH Windows sandbox; use danger-full-access explicitly')
+    if (isWindowsBash(this.selection)) {
+      const policy = this.ctx.sandboxPolicy.resolve({ session: spec.owner.session })
+      assertBashPolicy(this.selection, policy)
+      const workdir = spec.cwd ?? policy.workspaceRoot
+      if (typeof this.ctx.shell.verifyBash !== 'function') {
+        throw new Error('dsh-shell: the selected Windows executor is required for Bash terminals')
+      }
+      await this.ctx.shell.verifyBash(this.ctx.shell.resolve({ command: '', workdir,
+        sandboxPolicy: policy, signal: spec.signal }))
+      spec.signal?.throwIfAborted()
+      const [shellPath, ...shellArgs] = bashRuntimeArgv(this.selection, workdir, undefined, true)
+      const backend = new BashTerminalBackend(this.ctx, { ...this.config, shellPath, shellArgs },
+        envelope => this.ctx.subprocess.spawnTerminal({ ...envelope,
+          env: runtimeEnvironment(this.selection, { ...envelope.env,
+            DSH_SHELL_INJECTED_PROMPT: envelope.env.PROMPT_COMMAND ?? '' },
+          this.selection.id === 'wsl' ? scrubbedParentEnv() : {}) }))
+      return backend.spawn({ ...spec, cwd: workdir })
     }
     return super.spawn(spec)
   }
@@ -26,24 +38,43 @@ export function apply(ctx, config) {
   }
   let resolved
   let spawnTerminal
-  if (selection.id === 'wsl') {
-    const prompt = 'printf "\\033]133;D;%s\\007" "$?"; PS1="dsh> "'
-    const setup = `export PS1=${quoteForBash('dsh> ')}; export PROMPT_COMMAND=${quoteForBash(prompt)}; exec /bin/bash --noprofile --norc -i`
-    resolved = TerminalConfig({ ...config, shellDialect: 'bash', shellPath: selection.path,
-      shellArgs: [...(selection.distribution ? ['--distribution', selection.distribution] : []), '--exec', '/bin/bash', '-lc', setup] })
+  const startupWorkdirs = new WeakMap()
+  const selectedPosix = selection.id !== 'auto' && !isWindowsBash(selection) && selection.dialect !== 'pwsh'
+  const initializePosix = selectedPosix || !!selection.environmentShell
+  if (isWindowsBash(selection)) {
+    resolved = TerminalConfig({ ...config, shellDialect: 'bash', shellPath: selection.path })
   } else if (selection.dialect === 'pwsh') {
     resolved = TerminalConfig({ ...config, shellDialect: 'pwsh', ...(selection.path ? { shellPath: selection.path } : {}) })
-  } else if (selection.shell === 'zsh') {
-    resolved = TerminalConfig({ ...config, shellDialect: 'bash', shellPath: selection.path, shellArgs: ['-li'] })
-    spawnTerminal = spec => ctx.subprocess.spawnTerminal({ ...spec, env: {
-      ...spec.env,
-      DSH_ZSH_USER_ZDOTDIR: process.env.ZDOTDIR || process.env.HOME || homedir(),
-      ZDOTDIR: startupDirectory,
-    } })
+  } else if (selectedPosix) {
+    resolved = TerminalConfig({ ...config, shellDialect: 'bash', shellPath: selection.path,
+      shellArgs: posixShellArgs(selection) })
   } else {
     resolved = TerminalConfig({ ...config, shellDialect: 'bash', shellPath: selection.path })
   }
-  const backend = new SelectedTerminalBackend(ctx, resolved, spawnTerminal)
-  backend.selection = selection
-  ctx.terminals.registerBackend(backend)
+  if (initializePosix) spawnTerminal = async spec => {
+    const terminal = await ctx.subprocess.spawnTerminal({ ...spec,
+      env: selection.shell === 'bash' ? { ...spec.env,
+        DSH_SHELL_INJECTED_PROMPT: spec.env.PROMPT_COMMAND ?? '' } : spec.env })
+    startupWorkdirs.set(terminal, spec.cwd)
+    return terminal
+  }
+  // Let DSH resolve dialect defaults and validate bounds before adapting its backend.
+  const terminals = new Proxy(ctx.terminals, { get(target, key) {
+    if (key === 'registerBackend') return original => {
+      const [shellPath, ...shellArgs] = inheritPosixEnvironment([original.config.shellPath, ...original.config.shellArgs], selection)
+      const backend = new SelectedTerminalBackend(ctx, shellPath === original.config.shellPath && shellArgs.every((arg, index) => arg === original.config.shellArgs[index])
+        ? original.config : { ...original.config, shellPath, shellArgs }, spawnTerminal)
+      backend.selection = selection
+      if (initializePosix) backend.createSession = (terminal, config) =>
+        initializePosixSession(original.createSession(terminal, config), selection, startupWorkdirs.get(terminal))
+      return target.registerBackend(backend)
+    }
+    const value = Reflect.get(target, key, target)
+    return typeof value === 'function' ? value.bind(target) : value
+  } })
+  return applyTerminal(new Proxy(ctx, { get(target, key) {
+    if (key === 'terminals') return terminals
+    const value = Reflect.get(target, key, target)
+    return typeof value === 'function' ? value.bind(target) : value
+  } }), resolved)
 }

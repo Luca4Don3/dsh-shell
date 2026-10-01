@@ -2,68 +2,35 @@
 
 English | [中文](README.zh-CN.md)
 
-## Overview
+Select the shell for DSH agent commands and the `minimal` persistent terminal from the DSH UI. Targets DSH `0.2.0-rc.1`; `auto` preserves DSH's default.
 
-Chooses the shell DSH uses for the model-facing **one-shot command tool** and the `minimal` preset's **persistent command tool**. Targets DSH `0.2.0-rc.1`.
+## Environments
 
-## Shells
-
-| Platform | Options | One-shot tool | Persistent tool |
-| --- | --- | --- | --- |
-| macOS / Linux | `bash`, `zsh` | `bash` | `bash` |
-| Windows | `pwsh7`, `powershell` | `pwsh` | `pwsh` |
-| Windows with WSL | `wsl` | `pwsh` (Bash syntax) | `bash` |
-
-### `auto`
-
-`auto` keeps DSH's current default: bash on macOS and Linux, and DSH's own PowerShell resolver on Windows.
-
-### macOS / Linux
-
-- Selecting `zsh` explicitly: one-shot commands start as `zsh -lic`, and the persistent terminal starts as `zsh -li`.
-- Selecting `bash` explicitly: one-shot commands start as an interactive login shell (`bash -lic`).
-- Selecting `auto`: one-shot commands keep DSH's original `bash -c` behavior.
-- The persistent terminal first sources your own `.zshenv`, `.zprofile`, `.zshrc`, and `.zlogin` (honoring your own `ZDOTDIR`), so their exports, including credentials, stay visible to model-invoked commands.
-
-### Windows
-
-- The plugin detects PowerShell 7 (`pwsh7`), Windows PowerShell (`powershell`), and WSL (`wsl`).
-- `wsl` appears as a configuration option only when `wsl.exe --status` succeeds and `wsl.exe --list --quiet` reports at least one installed distribution.
-- The first listed distribution is used unless one is selected explicitly; restart DSH to refresh the options after installing a new distribution.
-- PowerShell selections keep running through DSH's Windows sandbox. `wsl` does not, see [Known limits](#known-limits).
-- `bash` and `zsh` require a POSIX host; on Windows, select `wsl` instead.
-
-## Configuration
-
-Open the `dsh-shell` bundle details on the **Plugins** page. The selector lists only supported shells detected on this host; choose one, choose a WSL distribution when applicable, and save.
-
-| Field | Meaning |
+| Platform | Options |
 | --- | --- |
-| `shell` | `auto`, or a shell id from the table above |
-| `shellPath` | Optional executable path in the profile patch (not with `auto` or `wsl`) |
-| `wslDistribution` | WSL distribution name; defaults to the first listed by `wsl.exe` |
+| macOS / Linux | Bash, Zsh, sh, dash, ksh, mksh, ash, fish, csh, tcsh |
+| Windows | PowerShell 7, Windows PowerShell, Git Bash, MSYS2, Cygwin, WSL |
 
-Restart DSH and start a new session to apply the selection.
+Only supported, detected installations appear; separate installations display their paths. Discovery checks common locations, `PATH`, `/etc/shells` (POSIX), the Git registry, and `MSYS2_ROOT` / `CYGWIN_ROOT`.
 
-## Tool routing
+Choose a WSL distribution and see its WSL 1/2 version, state and default marker `★`. Older CLIs without `--status` remain supported. Unknown versions display `?`; new version numbers are marked unverified. Dedicated WSL 3 adaptation is deferred.
 
-| Selection | One-shot tool | Persistent tool |
-| --- | --- | --- |
-| `bash`, `zsh`, `wsl` | Bash implementation | Bash implementation |
-| `pwsh7`, `powershell` | PowerShell implementation | PowerShell implementation |
+## Usage
 
-The one-shot tool keeps DSH's platform name (`bash` on POSIX, `pwsh` on Windows), while its system guidance states the selected syntax. The persistent tool's description names the selected shell and syntax as well. Other Web presets use the one-shot executor only.
+Open **Plugins → dsh-shell**, select a shell and a WSL distribution if applicable, then save, restart DSH and start a new session. Restart after installing environments to refresh the list.
 
-## Known limits
+- Zsh reads your `.zshenv`, `.zprofile`, `.zshrc` and `.zlogin`, honoring `ZDOTDIR`.
+- POSIX loads the original user shell (`SHELL` or account default) before starting the selected shell, inheriting exported variables. The selected shell also reads its own configuration. `auto` retains DSH's default shell and adds the original shell environment. Aliases and unexported variables do not transfer between shells.
+- Windows Bash reads login profiles and your `.bashrc`. A capability check runs before execution; failure is explicit.
+- Windows shells inherit the host environment DSH permits forwarding. WSL receives custom variables and appends converted, deduplicated Windows PATH entries to Linux PATH while retaining its own HOME. DSH's existing sensitive-variable filter is preserved.
+- One-shot tools retain their platform names: `bash` on POSIX, `pwsh` on Windows, with descriptions matching the selected syntax. The `minimal` persistent tool uses `bash` or `pwsh` according to dialect.
+- Windows Bash commands use POSIX paths; `workdir` uses a Windows path, converted with `wslpath` / `cygpath`. Use `cd` inside command for a Linux directory.
 
-- WSL cannot be confined by DSH's Windows sandbox. WSL commands and persistent sessions **fail explicitly** under `read-only` and `workspace-write`; select `danger-full-access` first.
-- This bundle restates the shipped `minimal` preset, because a DSH patch layer replaces a row's whole `config`. Re-check that row after a DSH upgrade.
-- The manual terminal panel has its own shell selector and is unaffected.
-- The desktop profile is managed by Electron, and `dsh plugin --profile desktop` cannot modify it.
+Advanced: `shellPath` in the profile patch can override a detected installation with an executable of the same family; it cannot accompany `auto` or `wsl`. An omitted WSL distribution uses its detected default; multiple distributions with an unknown default require an explicit choice.
 
 ## Install
 
-Desktop: add this directory from the **Plugins** page, open its bundle details, save a shell choice, then restart DSH and start a new session.
+Desktop: add the plugin directory from **Plugins**.
 
 CLI-managed Web profile:
 
@@ -71,9 +38,10 @@ CLI-managed Web profile:
 dsh plugin --profile web add /absolute/path/to/dsh-shell
 ```
 
-Then edit the `dsh-shell` row in that profile's configuration.
+## Limits and verification
 
-## Verification status
-
-- macOS: one-shot zsh and persistent zsh were exercised against the installed DSH RC in an isolated test profile.
-- Windows: reviewed against the DSH `0.2.0-rc.1` source only, with no end-to-end run on a Windows host.
+- WSL requires `danger-full-access` and fails in confined modes; native Windows shells still pass through DSH's sandbox.
+- Built-in `standard`, `ptc` and `cordis` presets use the tool adapters. Custom presets can use `dsh-shell/tool-posix`, `dsh-shell/tool-windows` or `dsh-shell/preset`.
+- The `minimal` config still replaces a whole row; re-check after DSH upgrades. The manual terminal panel has its own selector.
+- Bash, Zsh, sh, dash, ksh, csh and tcsh were exercised locally with isolated configuration. Local startup tests for fish, mksh and ash are pending. Windows / WSL passes simulated and isolated Bash tests but **has no Windows-host acceptance run**, including WSL cancellation and process cleanup.
+- `npm test` requires Node.js 24, plus Python 3 for POSIX PTY tests only; the plugin does not require Python. CI covers macOS (with fish installed) and Windows; remote CI has not run yet.
