@@ -35,16 +35,27 @@ export function inheritPosixEnvironment(argv, selection, workdir) {
 export function posixShellArgs(selection, command, workdir) {
   if (!posixShells.includes(selection.shell)) throw new Error(`dsh-shell: unsupported POSIX shell ${selection.shell}`)
   if (workdir && !isAbsolute(workdir)) throw new Error('dsh-shell: workdir must be an absolute POSIX path')
+  if (command !== undefined) quoteBash(command) // Reject NUL before any subprocess is started.
+  if (selection.shell === 'bash') {
+    const startup = ['if [ -r "$HOME/.bashrc" ]; then . "$HOME/.bashrc"; fi']
+    if (workdir) startup.push(`cd -- ${quoteBash(workdir)} || exit`)
+    // Match the Windows Bash runtime: inherit login exports, then load bashrc
+    // in the interactive shell, before Bash parses the caller's command.
+    const launch = `exec "$BASH" --noprofile --rcfile <(printf '%s\\n' ${quoteBash(startup.join('\n'))}) -i${command === undefined ? '' : ' -c "$1" dsh-shell'}`
+    return ['-lc', launch, 'dsh-shell', ...(command === undefined ? [] : [command])]
+  }
   const csh = posixDialect(selection.shell) === 'csh'
   if (command === undefined) return csh ? ['-l'] : ['-l', '-i']
-  quoteBash(command) // Reject NUL before any subprocess is started.
   const setup = []
   if (csh) setup.push('if (-r "$HOME/.login") source "$HOME/.login"')
   if (workdir) {
     setup.push(`cd ${csh ? '' : '-- '}${quotePosixArgument(workdir, selection.shell)}`)
     setup.push(csh ? 'if ($status != 0) exit $status' : selection.shell === 'fish' ? 'or exit' : 'test $? = 0 || exit')
   }
-  return [...(csh ? ['-i'] : ['-l', '-i']), '-c', [...setup, command].join('\n')]
+  const script = [...setup, command].join('\n')
+  // A multiline csh -c argument resumes at the next line after exit. eval
+  // keeps the script in one input context, so early exit also stops setup.
+  return [...(csh ? ['-i'] : ['-l', '-i']), '-c', csh ? `eval ${quotePosixArgument(script, selection.shell)}` : script]
 }
 
 export function posixPromptSetup(selection, workdir) {

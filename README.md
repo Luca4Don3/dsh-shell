@@ -20,6 +20,7 @@ Choose a WSL distribution and see its WSL 1/2 version, state and default marker 
 Open **Plugins → dsh-shell**, select a shell and a WSL distribution if applicable, then save, restart DSH and start a new session. Restart after installing environments to refresh the list.
 
 - Zsh reads your `.zshenv`, `.zprofile`, `.zshrc` and `.zlogin`, honoring `ZDOTDIR`.
+- POSIX Bash first reads login profiles, then starts an interactive Bash that inherits their exported variables and reads `.bashrc`. Put interactive aliases, functions and prompt hooks in `.bashrc`.
 - POSIX loads the original user shell (`SHELL` or account default) before starting the selected shell, inheriting exported variables. The selected shell also reads its own configuration. `auto` retains DSH's default shell and adds the original shell environment. Aliases and unexported variables do not transfer between shells.
 - Windows Bash reads login profiles and your `.bashrc`. A capability check runs before execution; failure is explicit.
 - Windows shells inherit the host environment DSH permits forwarding. WSL receives custom variables and appends converted, deduplicated Windows PATH entries to Linux PATH while retaining its own HOME. DSH's existing sensitive-variable filter is preserved.

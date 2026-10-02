@@ -20,6 +20,7 @@ WSL 可选择不同发行版，显示 WSL 1／2、状态与默认标记 `★`。
 在 **Plugins → dsh-shell** 详情页选择 Shell；使用 WSL 时选择发行版，然后保存、重启 DSH、新建会话。安装新环境后同样需要重启以刷新列表。
 
 - Zsh 加载用户 `.zshenv`、`.zprofile`、`.zshrc`、`.zlogin`，遵循 `ZDOTDIR`。
+- POSIX Bash 先读取登录配置，再启动继承其导出变量的交互 Bash 并读取 `.bashrc`。交互别名、函数和提示符钩子应放在 `.bashrc` 中。
 - POSIX 先加载本机原 Shell（`SHELL` 或账户默认 Shell）的配置，再启动所选 Shell，继承已导出的环境变量；所选 Shell 也加载自己的配置。`auto` 仍使用 DSH 默认 Shell，补充原 Shell 的环境。别名和未导出的变量不跨 Shell 继承。
 - Windows Bash 加载登录配置和用户 `.bashrc`；执行前检查 Bash 能力，失败会明确报错。
 - Windows Shell 继承 DSH 可转发的本机环境。WSL 继承自定义变量，Windows PATH 转换、去重后追加至 Linux PATH，保留发行版的 HOME；保留 DSH 原有的敏感变量过滤。
