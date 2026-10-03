@@ -164,8 +164,8 @@ export function detectPosixShells(env = process.env, { present = executable, rea
       if (seen.has(key)) return false
       seen.add(key)
       return true
-    }).map((path, index) => ({
-      id: index === 0 ? shell : `posix-${shell}:${createHash('sha256').update(path).digest('hex').slice(0, 12)}`,
+    }).map(path => ({
+      id: `posix-${shell}:${createHash('sha256').update(path).digest('hex').slice(0, 12)}`,
       shell, dialect: posixDialect(shell), path, label: `${shell} · ${path}`,
     }))
   })
@@ -199,7 +199,9 @@ export function resolveSelection(config, platform = process.platform, env = proc
   if (id === 'native-pwsh') return { id: 'auto', dialect: 'pwsh' }
   if (requested === 'auto') return { id: 'auto', dialect: 'bash', shell: 'bash', environmentShell: environmentShell(env) }
   if (posixShells.includes(id) || id.startsWith('posix-')) {
-    const found = (installedShells ?? detectInstalledShells(platform, env)).find(item => item.id === id)
+    const inventory = installedShells ?? detectInstalledShells(platform, env)
+    const found = inventory.find(item => item.id === id)
+      ?? (posixShells.includes(id) ? inventory.find(item => item.shell === id) : undefined)
     const shell = found?.shell ?? (posixShells.includes(id) ? id : undefined)
     const path = config.shellPath || found?.path
     if (!shell || !path || !executable(path)) throw new Error(`dsh-shell: ${id} executable was not found`)

@@ -185,7 +185,7 @@ for (const shell of ['csh', 'tcsh']) {
 
 function bashStartupFixture() {
   const result = fixture()
-  writeFileSync(`${result.home}/.bash_profile`, 'export REVIEW_PROFILE=profile-ok\ncd "$HOME"\n')
+  writeFileSync(`${result.home}/.bash_profile`, 'export REVIEW_PROFILE=profile-ok\n. "$HOME/.bashrc"\ncd "$HOME"\n')
   writeFileSync(`${result.home}/.bashrc`, [
     'case $- in *i*) ;; *) return ;; esac',
     'export REVIEW_RC=rc-ok',
@@ -235,4 +235,77 @@ test('persistent Bash loads both startup files and retains aliases, state and pr
     assert.ok(result.stdout.includes(workdir), result.stdout)
     assert.ok(result.stdout.includes('user-status:1'), result.stdout)
     assert.ok(result.stdout.includes('\x1b]133;D;1\x07'), JSON.stringify(result.stdout))
+  })
+
+test('Bash sources bashrc once and preserves profile state and hooks across direct and indirect sourcing',
+  { skip: !bashPath }, () => {
+    const cases = [
+      ['dot', '. "$HOME/.bashrc"'],
+      ['source', 'source "$HOME/.bashrc"'],
+      ['builtin', 'builtin source "$HOME/./.bashrc"'],
+      ['indirect', '. "$HOME/shared.bash"'],
+      ['function', 'load_rc() { . "$HOME/.bashrc"; }; load_rc'],
+      ['DEBUG', 'trap \'REVIEW_DEBUG_HITS=$(( ${REVIEW_DEBUG_HITS:-0} + 1 ))\' DEBUG\n. "$HOME/.bashrc"'],
+      ['RETURN', 'trap \'REVIEW_RETURN_HITS=$(( ${REVIEW_RETURN_HITS:-0} + 1 ))\' RETURN\n. "$HOME/.bashrc"'],
+    ]
+    for (const [name, source] of cases) {
+      const { home, workdir, env } = fixture()
+      writeFileSync(`${home}/shared.bash`, 'rc_name=.bashrc\n. "$HOME/$rc_name"\n')
+      writeFileSync(`${home}/.bash_profile`, [
+        'REVIEW_PROFILE_READS=$(( ${REVIEW_PROFILE_READS:-0} + 1 ))',
+        'REVIEW_PRIVATE=private-value',
+        'review_profile_function() { printf "function-ok|"; }',
+        'alias review_profile_alias="printf alias-ok"',
+        source,
+      ].join('\n') + '\n')
+      writeFileSync(`${home}/.bashrc`, [
+        'case $- in *i*) ;; *) return ;; esac',
+        'REVIEW_RC_READS=$(( ${REVIEW_RC_READS:-0} + 1 ))',
+        'export PATH="$HOME/tools:$PATH"',
+        'return 0',
+      ].join('\n') + '\n')
+      const command = [
+        'printf "counts:%s|%s|%s\\n" "$REVIEW_PROFILE_READS" "$REVIEW_RC_READS" "$REVIEW_PRIVATE"',
+        'review_profile_function; review_profile_alias',
+        'printf "\\n"; pwd; printf "%s\\n" "$PATH"',
+        'trap -p DEBUG RETURN',
+        'case $- in *T*) echo leaked-functrace ;; esac',
+        ':',
+      ].join('\n')
+      const result = spawnSync(bashPath, posixShellArgs({ shell: 'bash' }, command, workdir),
+        { cwd: home, env, encoding: 'utf8', timeout: 10000 })
+      assert.equal(result.error, undefined, name)
+      assert.equal(result.status, 0, `${name}: ${result.stderr}`)
+      assert.ok(result.stdout.includes(`counts:1|1|private-value\nfunction-ok|alias-ok\n${workdir}\n`), `${name}: ${result.stdout}`)
+      assert.equal(result.stdout.split(`${home}/tools`).length - 1, 1, `${name}: ${result.stdout}`)
+      assert.ok(!result.stdout.includes('leaked-functrace'), result.stdout)
+      if (name === 'DEBUG' || name === 'RETURN') assert.ok(result.stdout.includes(`REVIEW_${name}_HITS`), result.stdout)
+    }
+  })
+
+test('Bash respects a profile that omits bashrc and falls back to bashrc only without a user profile',
+  { skip: !bashPath }, () => {
+    for (const withProfile of [false, true]) {
+      const { home, workdir, env } = fixture()
+      if (withProfile) writeFileSync(`${home}/.bash_profile`, 'REVIEW_PROFILE=profile-ok\n')
+      writeFileSync(`${home}/.bashrc`, 'REVIEW_RC=rc-ok\n')
+      const result = spawnSync(bashPath, posixShellArgs({ shell: 'bash' },
+        'printf "%s|%s" "${REVIEW_PROFILE-}" "${REVIEW_RC-}"', workdir),
+      { cwd: home, env, encoding: 'utf8', timeout: 10000 })
+      assert.equal(result.error, undefined)
+      assert.equal(result.status, 0, result.stderr)
+      assert.equal(result.stdout, withProfile ? 'profile-ok|' : '|rc-ok')
+    }
+  })
+
+test('persistent Bash avoids repeated bashrc side effects and respects login profile precedence',
+  { skip: !bashPath }, () => {
+    const { home, workdir, env } = fixture()
+    writeFileSync(`${home}/.bash_login`, 'REVIEW_LOGIN=login-ok\n. "$HOME/.bashrc"\n')
+    writeFileSync(`${home}/.profile`, 'REVIEW_LOGIN=wrong-profile\n')
+    writeFileSync(`${home}/.bashrc`, 'REVIEW_RC_READS=$(( ${REVIEW_RC_READS:-0} + 1 ))\n')
+    const result = runPty(bashPath, posixShellArgs({ shell: 'bash' }), { cwd: home, env,
+      input: [posixPromptSetup({ shell: 'bash' }, workdir),
+        'printf "startup:%s|%s\\n" "$REVIEW_LOGIN" "$REVIEW_RC_READS"', 'exit'].join('\n') + '\n' })
+    assert.ok(result.stdout.includes('startup:login-ok|1'), result.stdout)
   })

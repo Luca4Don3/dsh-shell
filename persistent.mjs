@@ -1,8 +1,9 @@
 import z from '@deepseek-ai/schemastery'
 import * as BashPersistent from '@deepseek-ai/dsh-tool-bash-persistent'
 import * as PwshPersistent from '@deepseek-ai/dsh-tool-pwsh-persistent'
-import { posixSyntaxGuidance } from './posix-runtime.mjs'
+import { posixDialect, posixSyntaxGuidance } from './posix-runtime.mjs'
 import { withToolRegistration } from './tool-context.mjs'
+import { withPersistentTransport } from './persistent-runtime.mjs'
 
 export const name = 'persistent-selected-shell'
 export const inject = ['tools', 'terminals', 'shellSelection']
@@ -49,5 +50,7 @@ export function apply(ctx, config) {
           description: `The ${selection.shell ?? 'bash'} command to run. ${posixSyntaxGuidance(selection.shell ?? 'bash')}` },
       } },
     }))
-  return plugin.apply(adapted, { ...config, description })
+  const transport = selection.dialect !== 'pwsh' && ['posix', 'fish', 'csh'].includes(posixDialect(selection.shell ?? 'bash'))
+    ? withPersistentTransport(adapted, selection.shell) : adapted
+  return plugin.apply(transport, { ...config, description })
 }

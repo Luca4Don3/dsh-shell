@@ -11,13 +11,34 @@ test('POSIX discovery covers system shells, Homebrew, MacPorts, PATH and /etc/sh
     realpath: path => path === '/alias/bash' ? '/opt/homebrew/bin/bash' : path }
   const found = detectPosixShells({ PATH: '/alias:/custom' }, options)
   assert.equal(found.filter(item => item.shell === 'bash').length, 2)
-  assert.equal(found.find(item => item.id === 'bash').path, '/bin/bash')
+  assert.equal(found.find(item => item.shell === 'bash').path, '/bin/bash')
   assert.equal(found.find(item => item.shell === 'fish').dialect, 'fish')
   assert.equal(found.find(item => item.shell === 'tcsh').dialect, 'csh')
   assert.ok(found.some(item => item.path === '/registered/mksh'))
   assert.ok(found.some(item => item.path === '/custom/ash'))
   const reordered = detectPosixShells({ PATH: '/custom:/alias' }, options)
   assert.deepEqual(found.map(item => item.id), reordered.map(item => item.id))
+})
+
+test('POSIX installation IDs survive removal and insertion of an earlier installation', () => {
+  const discover = paths => detectPosixShells({ PATH: '' }, {
+    present: path => paths.includes(path), read: () => '', realpath: path => path,
+  })
+  const first = '/opt/homebrew/bin/fish', second = '/usr/local/bin/fish'
+  const before = discover([first, second])
+  const after = discover([second])
+  assert.equal(before.find(item => item.path === second).id, after[0].id)
+  assert.equal(discover([first])[0].id, before.find(item => item.path === first).id)
+  assert.ok(before.every(item => item.id.startsWith('posix-fish:')))
+})
+
+test('legacy family names and existing hashed selections both resolve', { skip: process.platform === 'win32' }, () => {
+  const installed = [{ id: 'posix-sh:fixture', shell: 'sh', path: '/bin/sh' }]
+  for (const shell of ['sh', installed[0].id]) {
+    const resolved = resolveSelection({ shell }, process.platform, { SHELL: '/bin/sh' }, installed)
+    assert.equal(resolved.path, '/bin/sh')
+    assert.equal(resolved.shell, 'sh')
+  }
 })
 
 test('POSIX discovery excludes nonexecutable files and broken symlinks', { skip: process.platform === 'win32' }, () => {

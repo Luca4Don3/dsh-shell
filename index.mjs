@@ -14,7 +14,10 @@ function distributionLabel(item) {
 }
 
 export const Config = z.object({
-  shell: z.union(['auto', ...installedShells.map(item => z.const(item.id).description(item.label ?? item.id))]).default('auto').volatile(),
+  shell: z.union(['auto', ...installedShells.map(item => z.const(item.id).description(item.label ?? item.id)),
+    ...[...new Set(installedShells.map(item => item.shell).filter(Boolean))]
+      .map(shell => z.const(shell).description(`${shell} · default installation (legacy)`)),
+  ]).default('auto').volatile(),
   shellPath: z.string().required(false).volatile(),
   wslDistribution: (wslDistributions.length
     ? z.union(wslDistributions.map(item => z.const(item.name).description(distributionLabel(item))))

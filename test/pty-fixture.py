@@ -18,10 +18,12 @@ output = bytearray()
 status = None
 timed_out = False
 try:
-    os.write(master, spec['input'].encode())
+    os.set_blocking(master, False)
+    pending = spec['input'].encode()
     deadline = time.monotonic() + 8
     while time.monotonic() < deadline:
-        if select.select([master], [], [], 0.05)[0]:
+        readable, writable, _ = select.select([master], [master] if pending else [], [], 0.05)
+        if readable:
             try:
                 chunk = os.read(master, 65536)
                 if not chunk:
@@ -31,6 +33,12 @@ try:
                 if error.errno != errno.EIO:
                     raise
                 break
+        if writable:
+            try:
+                sent = os.write(master, pending[:1024])
+                pending = pending[sent:]
+            except BlockingIOError:
+                pass
         if status is None:
             exited, outcome = os.waitpid(pid, os.WNOHANG)
             if exited:

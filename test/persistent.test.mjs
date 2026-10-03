@@ -28,7 +28,7 @@ globalThis.__persistentCalls = []
 globalThis.__persistentDefinition = { name: 'bash', execute() {}, parameters: { properties: { command: { type: 'string' } } } }
 const { apply } = await import('../persistent.mjs')
 function context(selection, registered = []) {
-  return { shellSelection: { selected: selection }, tools: { register: definition => registered.push(definition) } }
+  return { shellSelection: { selected: selection }, terminals: {}, tools: { register: definition => registered.push(definition) } }
 }
 
 test('bash, zsh and WSL retain the shipped persistent-tool guidance', () => {

@@ -1,5 +1,8 @@
 import { isAbsolute } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { quoteBash } from './bash-runtime.mjs'
+
+const bashStartup = fileURLToPath(new URL('./bash-startup.bash', import.meta.url))
 
 export const posixShells = ['bash', 'zsh', 'sh', 'dash', 'ksh', 'mksh', 'ash', 'fish', 'csh', 'tcsh']
 
@@ -37,12 +40,12 @@ export function posixShellArgs(selection, command, workdir) {
   if (workdir && !isAbsolute(workdir)) throw new Error('dsh-shell: workdir must be an absolute POSIX path')
   if (command !== undefined) quoteBash(command) // Reject NUL before any subprocess is started.
   if (selection.shell === 'bash') {
-    const startup = ['if [ -r "$HOME/.bashrc" ]; then . "$HOME/.bashrc"; fi']
+    const startup = [`. ${quoteBash(bashStartup)}`]
     if (workdir) startup.push(`cd -- ${quoteBash(workdir)} || exit`)
-    // Match the Windows Bash runtime: inherit login exports, then load bashrc
-    // in the interactive shell, before Bash parses the caller's command.
+    // The launcher reads no profiles. One interactive shell loads the user's
+    // startup configuration before Bash parses the caller's command.
     const launch = `exec "$BASH" --noprofile --rcfile <(printf '%s\\n' ${quoteBash(startup.join('\n'))}) -i${command === undefined ? '' : ' -c "$1" dsh-shell'}`
-    return ['-lc', launch, 'dsh-shell', ...(command === undefined ? [] : [command])]
+    return ['--noprofile', '--norc', '-c', launch, 'dsh-shell', ...(command === undefined ? [] : [command])]
   }
   const csh = posixDialect(selection.shell) === 'csh'
   if (command === undefined) return csh ? ['-l'] : ['-l', '-i']
