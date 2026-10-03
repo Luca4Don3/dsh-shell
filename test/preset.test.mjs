@@ -59,9 +59,17 @@ test('POSIX presets adapt nested Bash registrations without changing the authore
   }
 })
 
-test('all shipped one-shot presets use the adapter without replacing their configs', () => {
+test('all shipped one-shot presets route their tool rows through this bundle', () => {
   const patch = readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf8')
   for (const id of ['standard', 'ptc', 'cordis']) {
-    assert.match(patch, new RegExp(`- id: preset-${id}\\n  name: dsh-shell/preset\\n(?:\\n|#|-)`))
+    assert.match(patch, new RegExp(`- id: preset-${id}\n  config:`))
   }
+  // A preset row keeps its one-shot tool names inside `config.plugins`, which the
+  // patch entry map never indexes; reaching them means replacing the whole config.
+  // A top-level entry that swaps a row's module by writing `name` is silently
+  // skipped by the loader (name is an identity check, never assigned), so assert
+  // that none exist and that every preset carries both adapters.
+  assert.doesNotMatch(patch, /- id: [\w-]+\n  name: dsh-shell\//)
+  assert.equal((patch.match(/dsh-shell\/tool-posix/g) || []).length, 3)
+  assert.equal((patch.match(/dsh-shell\/tool-windows/g) || []).length, 3)
 })
