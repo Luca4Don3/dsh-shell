@@ -238,7 +238,7 @@ test('WSL persistent startup checks policy, uses each terminal cwd, and keeps Li
   assert.equal(calls[0].probe.workdir, 'D:\\project with spaces')
   assert.equal(spec.cwd, 'D:\\project with spaces')
   assert.equal(spec.argv[0], wsl.path)
-  assert.match(spec.argv[6], /133;D/)
+  assert.match(spec.argv.at(-2), /133;D/)
   assert.ok(spec.env.WSLENV.includes('DSH_SESSION_ID'))
   assert.equal(spec.env.DSH_SHELL_INJECTED_PROMPT, injectedPrompt)
   assert.ok(spec.env.WSLENV.split(':').includes('DSH_SHELL_INJECTED_PROMPT'))

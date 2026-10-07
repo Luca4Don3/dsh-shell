@@ -11,11 +11,11 @@ const workdir = "C:\\工作区\\O'Reilly project"
 
 test('WSL launch preserves the exact distribution and adapts to --cd support', () => {
   const argv = bashRuntimeArgv(wsl, workdir, 'printf "%s" "$HOME"')
-  assert.deepEqual(argv.slice(0, 8), [wsl.path, '--distribution', 'Ubuntu Dev', '--cd', workdir, '--exec', '/bin/bash', '-lc'])
+  assert.deepEqual(argv.slice(0, 10), [wsl.path, '--distribution', 'Ubuntu Dev', '--cd', workdir, '--exec', '/bin/bash', '--noprofile', '--norc', '-c'])
   assert.equal(argv.at(-1), 'printf "%s" "$HOME"')
   const legacy = bashRuntimeArgv({ ...wsl, supportsCd: false }, workdir, 'pwd')
   assert.ok(!legacy.includes('--cd'))
-  assert.match(legacy[6], /wslpath -u/)
+  assert.match(legacy.at(-3), /wslpath -u/)
   assert.deepEqual(bashProbeArgv(wsl).slice(0, 5), [wsl.path, '--distribution', 'Ubuntu Dev', '--exec', '/bin/bash'])
 })
 
@@ -23,7 +23,7 @@ test('native Bash uses its selected executable and cygpath, with safe quoting', 
   for (const runtime of ['git-bash', 'msys2', 'cygwin']) {
     const argv = bashRuntimeArgv({ ...git, runtime }, workdir, 'pwd')
     assert.equal(argv[0], git.path)
-    assert.match(argv[2], /cygpath -u/)
+    assert.match(argv.at(-3), /cygpath -u/)
     assert.equal(argv.at(-1), 'pwd')
   }
   assert.throws(() => quoteBash('x\0y'), /NUL/)
@@ -89,6 +89,21 @@ test('the generated one-shot Bash really sources bashrc, retains aliases and res
   assert.equal(result.status, 7, result.stderr)
   assert.equal(result.stdout, `alias-ok|loaded|${home}`)
 })
+
+test('Windows Bash loads profiles and bashrc once in one shell for one-shot and persistent commands',
+  { skip: process.platform === 'win32' }, () => {
+    for (const wsl of [false, true]) for (const persistent of [false, true]) {
+      const command = 'profile_function; profile_alias; printf "|%s|%s|%s\\n" "$PROFILE_READS" "$RC_READS" "$PROFILE_PRIVATE"'
+      const { result } = runControlledBash(persistent, command, `${command}\nexit\n`, {
+        wsl,
+        profile: 'export PROFILE_READS=$(( ${PROFILE_READS:-0} + 1 ))\nPROFILE_PRIVATE=private\nprofile_function() { printf function; }\nalias profile_alias="printf alias"\n. "$HOME/.bashrc"\n',
+        rc: 'export RC_READS=$(( ${RC_READS:-0} + 1 ))\n',
+      })
+      assert.equal(result.error, undefined)
+      assert.equal(result.status, 0, result.stderr)
+      assert.ok(result.stdout.includes('functionalias|1|1|private\n'), result.stdout + result.stderr)
+    }
+  })
 
 test('the generated persistent Bash preserves user prompt hooks and reports the previous exit code', { skip: process.platform === 'win32' }, () => {
   const { result } = runControlledBash(true, undefined, 'false\nexit\n')

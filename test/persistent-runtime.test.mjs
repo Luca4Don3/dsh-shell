@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { accessSync, constants, mkdirSync, mkdtempSync } from 'node:fs'
+import { accessSync, constants, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { adaptPersistentCommand, withPersistentTransport } from '../persistent-runtime.mjs'
@@ -72,6 +72,39 @@ for (const shell of ['bash', 'zsh', 'sh', 'dash', 'ksh', 'mksh', 'ash', 'fish', 
       const body = output.slice(output.lastIndexOf(start) + start.length,
         output.lastIndexOf(`__DSH_PERSISTENT_BASH_END_abcd-${index}:`))
       assert.equal(body, ['', `state:alive\n${workdir}\n`, `${value}\n`][index], output)
+    }
+  })
+  if (shell === 'csh' || shell === 'tcsh') test(`${shell} completes failed expansions and continues the persistent session`, { skip: !path }, () => {
+    const directory = fileURLToPath(new URL('../.temp/', import.meta.url))
+    mkdirSync(directory, { recursive: true })
+    const home = mkdtempSync(`${directory}persistent-error-`)
+    writeFileSync(`${home}/.cshrc`, 'alias precmd \'printf "user-status:%s\\n" "$status"; false\'\n')
+    const commands = [
+      'set REVIEW_STATE=alive',
+      'echo "$REVIEW_UNDEFINED"',
+      'echo *.definitely-missing',
+      'printf "state:%s\\n" "$REVIEW_STATE"',
+      'false',
+      'sh -c "exit 7"',
+    ].map((command, index) => adaptPersistentCommand(upstreamFrame(command, `abcd-${index}`), shell))
+    const spec = { argv: [path, ...posixShellArgs({ shell, path })], cwd: home,
+      env: { HOME: home, PATH: '/usr/bin:/bin', TERM: 'dumb' },
+      input: [posixPromptSetup({ shell }, home), 'stty -echo', ...commands, 'exit'].join('\n') + '\n' }
+    const run = spawnSync('python3', [fileURLToPath(new URL('./pty-fixture.py', import.meta.url))],
+      { input: JSON.stringify(spec), encoding: 'utf8', timeout: 10000 })
+    assert.equal(run.error, undefined)
+    assert.equal(run.status, 0, run.stderr)
+    const result = JSON.parse(run.stdout), output = result.stdout.replaceAll('\r', '')
+    assert.equal(result.timedOut, false, output)
+    assert.equal(result.status, 0, output)
+    assert.match(output, /Undefined variable/)
+    assert.match(output, /No match/)
+    assert.ok(output.includes('state:alive\n'), output)
+    assert.ok(output.includes('user-status:1\n'), output)
+    assert.ok(output.includes('\x1b]133;D;1\x07dsh> '), output)
+    for (const [index, status] of [[0, 0], [1, 1], [2, 1], [3, 0], [4, 1], [5, 7]]) {
+      assert.ok(output.includes(`__DSH_PERSISTENT_BASH_END_abcd-${index}:${status}\n`), output)
+      assert.equal([...output.matchAll(new RegExp(`__DSH_PERSISTENT_BASH_END_abcd-${index}:\\d+\\n`, 'g'))].length, 1, output)
     }
   })
 }

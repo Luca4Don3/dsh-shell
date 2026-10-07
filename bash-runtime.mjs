@@ -1,4 +1,7 @@
 import { win32 } from 'node:path'
+import { readFileSync } from 'node:fs'
+
+const bashStartup = readFileSync(new URL('./bash-startup.bash', import.meta.url), 'utf8').replaceAll('\r\n', '\n')
 
 export function quoteBash(value) {
   if (value.includes('\0')) throw new TypeError('shell command cannot contain NUL')
@@ -97,7 +100,7 @@ export function bashRuntimeArgv(selection, workdir, command, persistent = false)
       'if [ "${PROMPT_COMMAND-}" = "${DSH_SHELL_INJECTED_PROMPT-}" ]; then unset PROMPT_COMMAND; fi',
       'unset DSH_SHELL_INJECTED_PROMPT',
     ] : []),
-    'if [ -r "$HOME/.bashrc" ]; then . "$HOME/.bashrc"; fi',
+    bashStartup,
     ...(selection.id === 'wsl' ? [
       'IFS=: read -r -a __dsh_windows_paths <<< "${DSH_SHELL_WINDOWS_PATH-}"',
       'for __dsh_path in "${__dsh_windows_paths[@]}"; do if [ -n "$__dsh_path" ]; then case ":${PATH-}:" in *":$__dsh_path:"*) ;; *) PATH="${PATH:+$PATH:}$__dsh_path" ;; esac; fi; done',
@@ -112,9 +115,8 @@ export function bashRuntimeArgv(selection, workdir, command, persistent = false)
     '__dsh_prompt() { local status=$? hook; for hook in "${__dsh_user_prompt[@]}"; do __dsh_prompt_status "$status"; eval "$hook"; done; printf "\\033]133;D;%s\\007" "$status"; PS1="dsh> "; }',
     'PROMPT_COMMAND=__dsh_prompt; PS1="dsh> "',
   )
-  // The outer login shell reads profiles. The inner interactive shell reads the
-  // user's bashrc through an inline rcfile, then restores the requested cwd.
-  // No startup file is written into the user's profile or Linux filesystem.
+  // The launcher reads no profiles. Embed the shared startup script because
+  // the host plugin path is not necessarily accessible inside WSL.
   const setup = `exec "$BASH" --noprofile --rcfile <(printf '%s\\n' ${quoteBash(startup.join('\n'))}) -i${persistent ? '' : ' -c "$1" dsh-shell'}`
-  return executableArgs(selection, ['-lc', setup, 'dsh-shell', ...(persistent ? [] : [command])], workdir)
+  return executableArgs(selection, ['--noprofile', '--norc', '-c', setup, 'dsh-shell', ...(persistent ? [] : [command])], workdir)
 }

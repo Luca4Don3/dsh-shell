@@ -22,7 +22,7 @@ Open **Plugins → dsh-shell**, choose a shell (and a WSL distribution when aske
 | Zsh | `.zshenv`, `.zprofile`, `.zshrc`, `.zlogin`, honoring `ZDOTDIR` |
 | POSIX Bash | `/etc/profile`, then the first of `.bash_profile`, `.bash_login`, `.profile`; `.bashrc` only when none exists |
 | Other POSIX | The original user shell loads first, carrying exported variables over |
-| Windows Bash | Login profiles and `.bashrc`, after a capability check |
+| Windows Bash | After a capability check, uses the same profile rules as POSIX Bash; a profile controls whether to source `.bashrc` |
 
 One-shot tools keep their platform names (`bash` on POSIX, `pwsh` on Windows), with descriptions matching the selected syntax. Custom presets can point at `dsh-shell/tool-posix` or `dsh-shell/tool-windows`.
 

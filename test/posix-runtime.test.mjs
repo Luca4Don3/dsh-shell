@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { spawnSync } from 'node:child_process'
-import { accessSync, constants, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { accessSync, constants, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { inheritPosixEnvironment, initializePosixSession, posixPromptSetup, posixShellArgs, quotePosixArgument } from '../posix-runtime.mjs'
 
@@ -197,6 +197,35 @@ function bashStartupFixture() {
 }
 
 const bashPath = installedPath('bash')
+test('the same Bash selected through a symlink loads configuration once and auto still inherits it',
+  { skip: !bashPath }, () => {
+    const { home, workdir, env } = fixture()
+    mkdirSync(`${home}/alias`)
+    const alias = `${home}/alias/bash`
+    symlinkSync(bashPath, alias)
+    writeFileSync(`${home}/.bash_profile`, 'export PROFILE_READS=$(( ${PROFILE_READS:-0} + 1 ))\n. "$HOME/.bashrc"\n')
+    writeFileSync(`${home}/.bashrc`, 'export RC_READS=$(( ${RC_READS:-0} + 1 ))\n')
+    const command = 'printf "counts:%s|%s\\n" "$PROFILE_READS" "$RC_READS"; pwd'
+    for (const [path, original] of [[bashPath, alias], [alias, bashPath]]) {
+      const selection = { id: 'bash', shell: 'bash', path, environmentShell: { shell: 'bash', path: original } }
+      for (const persistent of [false, true]) {
+        const target = [path, ...posixShellArgs(selection, persistent ? undefined : command, workdir)]
+        const argv = inheritPosixEnvironment(target, selection, workdir)
+        const result = spawnSync(argv[0], argv.slice(1), { cwd: home, env, encoding: 'utf8', timeout: 10000,
+          input: persistent ? `${command}\nexit\n` : undefined })
+        assert.equal(result.error, undefined)
+        assert.equal(result.status, 0, result.stderr)
+        assert.ok(result.stdout.includes(`counts:1|1\n${workdir}\n`), result.stdout)
+      }
+      const argv = inheritPosixEnvironment([path, '-c', command], { ...selection, id: 'auto' }, workdir)
+      const result = spawnSync(argv[0], argv.slice(1), { cwd: home, env, encoding: 'utf8', timeout: 10000,
+        stdio: ['ignore', 'pipe', 'pipe'] })
+      assert.equal(result.error, undefined)
+      assert.equal(result.status, 0, result.stderr)
+      assert.equal(result.stdout, `counts:1|1\n${workdir}\n`)
+    }
+  })
+
 test('selected Bash loads login exports and bashrc aliases while retaining cwd, stdin and exit status',
   { skip: !bashPath }, () => {
     const { home, workdir, env } = bashStartupFixture()

@@ -17,8 +17,17 @@ export function adaptPersistentCommand(text, shell) {
   }
   const quote = value => quotePosixArgument(value, shell)
   const dialect = posixDialect(shell)
-  const status = dialect === 'csh' ? 'set __dsh_persistent_status=$status'
-    : dialect === 'fish' ? 'set -g __dsh_persistent_status $status' : '__dsh_persistent_status=$?'
+  if (dialect === 'csh') {
+    // Expansion errors abort the entire eval, including any trailing status
+    // capture. The terminal's precmd hook reports the status once on return
+    // to the prompt, including failed expansions, without losing shell state.
+    return `eval ${quote([
+      `set __dsh_csh_end = ${quote(end)}`,
+      `printf '%s\\n' ${quote(start)}`,
+      `eval ${quote(command)}`,
+    ].join('\n'))}`
+  }
+  const status = dialect === 'fish' ? 'set -g __dsh_persistent_status $status' : '__dsh_persistent_status=$?'
   const script = [
     `printf '%s\\n' ${quote(start)}`,
     `eval ${quote(command)}`,

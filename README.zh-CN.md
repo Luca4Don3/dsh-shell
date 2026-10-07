@@ -22,7 +22,7 @@
 | Zsh | 加载 `.zshenv`、`.zprofile`、`.zshrc`、`.zlogin`，遵循 `ZDOTDIR` |
 | POSIX Bash | 读取 `/etc/profile`，以及首个存在的 `.bash_profile`、`.bash_login`、`.profile`；均不存在时才读 `.bashrc` |
 | 其他 POSIX | 先加载本机原 Shell，继承已导出的环境变量 |
-| Windows Bash | 通过能力检查后，加载登录配置与 `.bashrc` |
+| Windows Bash | 通过能力检查后沿用 POSIX Bash 的加载规则，由登录配置决定是否 source `.bashrc` |
 
 一次性工具沿用平台名称（POSIX 为 `bash`，Windows 为 `pwsh`），描述与实际语法一致。自定义预设可指向 `dsh-shell/tool-posix` 或 `dsh-shell/tool-windows`。
 

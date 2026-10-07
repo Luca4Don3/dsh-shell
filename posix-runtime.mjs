@@ -1,4 +1,5 @@
 import { isAbsolute } from 'node:path'
+import { realpathSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { quoteBash } from './bash-runtime.mjs'
 
@@ -30,7 +31,8 @@ export function quotePosixArgument(value, shell) {
 export function inheritPosixEnvironment(argv, selection, workdir) {
   const original = selection.environmentShell
   // The target reads its own startup files once when it is already the user's shell.
-  if (!original || selection.id !== 'auto' && original.path === argv[0]) return argv
+  if (!original || selection.id !== 'auto' && original.shell === selection.shell
+    && (original.path === argv[0] || realpathSync(original.path) === realpathSync(argv[0]))) return argv
   const command = `exec ${argv.map(value => quotePosixArgument(value, original.shell)).join(' ')}`
   return [original.path, ...posixShellArgs(original, command, workdir)]
 }
@@ -80,7 +82,19 @@ export function posixPromptSetup(selection, workdir) {
     '__dsh_zsh_prompt() { printf "\\033]133;D;%d\\007dsh> " "${__dsh_zsh_command_status:-0}"; }',
     'setopt PROMPT_SUBST; unsetopt PROMPT_SP; PS1=\'$(__dsh_zsh_prompt)\'; RPS1=\'\'',
   ]
-  else if (dialect === 'csh') setup = ['set prompt = "`printf \'\\033]133;D;\'`%?`printf \'\\007\'`dsh> "']
+  else if (dialect === 'csh') setup = [
+    'set prompt = "`printf \'\\033]133;D;\'`%?`printf \'\\007\'`dsh> "',
+    'set __dsh_csh_end = ""',
+    'alias __dsh_user_precmd "`alias precmd`"',
+    `alias precmd ${quotePosixArgument([
+      'set __dsh_csh_status=$status',
+      'if ("$__dsh_csh_end" != "") printf \'%s%s\\n\' "$__dsh_csh_end" "$__dsh_csh_status"',
+      'set __dsh_csh_end = ""',
+      'set prompt = "`printf \'\\033]133;D;%s\\007\' "$__dsh_csh_status"`dsh> "',
+      'set status = $__dsh_csh_status',
+      '__dsh_user_precmd',
+    ].join('; '), selection.shell)}`,
+  ]
   else if (dialect === 'fish') setup = [
     'if functions -q fish_prompt; functions -c fish_prompt __dsh_user_fish_prompt; end',
     'function __dsh_fish_status; return $argv[1]; end',
