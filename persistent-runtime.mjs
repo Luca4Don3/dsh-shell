@@ -15,8 +15,12 @@ export function adaptPersistentCommand(text, shell) {
   if (!nonce || end !== `__DSH_PERSISTENT_BASH_END_${nonce}:`) {
     throw new Error('dsh-shell: invalid DSH persistent command markers')
   }
-  const quote = value => quotePosixArgument(value, shell)
   const dialect = posixDialect(shell)
+  // A literal CR is treated as Enter by the PTY. Reconstruct it inside the
+  // shell instead, after terminal input processing, including nested evals.
+  const carriageReturn = dialect === 'csh' ? '"`printf \'\\r\'`"'
+    : dialect === 'fish' ? '(printf \'\\r\')' : '"$(printf \'\\r\')"'
+  const quote = value => value.split('\r').map(part => quotePosixArgument(part, shell)).join(carriageReturn)
   if (dialect === 'csh') {
     // Expansion errors abort the entire eval, including any trailing status
     // capture. The terminal's precmd hook reports the status once on return

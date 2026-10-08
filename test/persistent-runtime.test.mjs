@@ -74,6 +74,28 @@ for (const shell of ['bash', 'zsh', 'sh', 'dash', 'ksh', 'mksh', 'ash', 'fish', 
       assert.equal(body, ['', `state:alive\n${workdir}\n`, `${value}\n`][index], output)
     }
   })
+  test(`${shell} transports literal CR and CRLF without changing bytes or losing completion`, { skip: !path }, () => {
+    const directory = fileURLToPath(new URL('../.temp/', import.meta.url))
+    mkdirSync(directory, { recursive: true })
+    const home = mkdtempSync(`${directory}persistent-cr-`)
+    const value = "\rquoted ' value\\backslash !bang\r\nsecond line\r"
+    const command = `printf '%s' ${quotePosixArgument(value, shell)} | od -An -v -tx1 | tr -d ' \\n'; printf '\\n'`
+    const adapted = adaptPersistentCommand(upstreamFrame(command, 'abcd'), shell)
+    assert.equal(adapted.includes('\r'), false)
+    const spec = { argv: [path, ...posixShellArgs({ shell, path })], cwd: home,
+      env: { HOME: home, ZDOTDIR: home, PATH: '/usr/bin:/bin', TERM: 'dumb' },
+      input: [posixPromptSetup({ shell }, home), 'stty -echo', adapted, 'exit'].join('\n') + '\n' }
+    const run = spawnSync('python3', [fileURLToPath(new URL('./pty-fixture.py', import.meta.url))],
+      { input: JSON.stringify(spec), encoding: 'utf8', timeout: 10000 })
+    assert.equal(run.error, undefined)
+    assert.equal(run.status, 0, run.stderr)
+    const result = JSON.parse(run.stdout), output = result.stdout.replaceAll('\r', '')
+    assert.equal(result.timedOut, false, output)
+    const start = '__DSH_PERSISTENT_BASH_START_abcd__\n', end = '__DSH_PERSISTENT_BASH_END_abcd:'
+    assert.ok(output.includes(`${end}0\n`), output)
+    assert.equal(output.slice(output.lastIndexOf(start) + start.length, output.lastIndexOf(end)),
+      `${Buffer.from(value).toString('hex')}\n`, output)
+  })
   if (shell === 'csh' || shell === 'tcsh') test(`${shell} completes failed expansions and continues the persistent session`, { skip: !path }, () => {
     const directory = fileURLToPath(new URL('../.temp/', import.meta.url))
     mkdirSync(directory, { recursive: true })

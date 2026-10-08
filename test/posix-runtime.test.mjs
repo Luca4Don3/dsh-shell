@@ -46,7 +46,11 @@ test('each POSIX shell uses its own startup options and invalid inputs fail befo
 test('POSIX session adaptation keeps DSH initialization and restores its send method even on failure', async () => {
   for (const fail of [false, true]) {
     const calls = []
-    const session = { startSend(request) { calls.push(request); return { done: Promise.resolve() } },
+    const session = { startSend(request) {
+      calls.push(request)
+      const [, prefix, nonce] = request.text.match(/'(__DSH_SHELL_READY_)' '([\da-f-]+__)'/)
+      return { done: Promise.resolve({ viewport: `${request.text}\r\n${prefix}${nonce}\r\n` }) }
+    },
       async initialize(signal) {
         await this.startSend({ text: '', submit: false, signal }).done
         if (fail) throw new Error('startup failed')
@@ -64,8 +68,52 @@ test('POSIX session adaptation keeps DSH initialization and restores its send me
   }
 })
 
+test('POSIX initialization rejects echoed setup and acknowledgements from another startup', async () => {
+  for (const viewport of [text => `${text}\r\ndsh> `, () => '\n__DSH_SHELL_READY_other__\ndsh> ']) {
+    const session = {
+      startSend(request) { return { done: Promise.resolve({ viewport: viewport(request.text) }) } },
+      async initialize() { await this.startSend({ text: '', submit: false }).done },
+    }
+    const original = session.startSend
+    initializePosixSession(session, { shell: 'bash' }, '/workspace')
+    await assert.rejects(session.initialize(), /initialization was not acknowledged/)
+    assert.equal(session.startSend, original)
+  }
+})
+
 for (const shell of ['bash', 'zsh', 'sh', 'dash', 'ksh', 'mksh', 'ash', 'csh', 'tcsh', 'fish']) {
   const path = installedPath(shell)
+  test(`${shell} acknowledges executed initialization and rejects setup consumed by startup read`, { skip: !path }, async () => {
+    for (const consumesInput of ['bash', 'zsh'].includes(shell) ? [false, true] : [false]) {
+      const { home, workdir, env } = fixture()
+      if (['bash', 'zsh'].includes(shell)) writeFileSync(`${home}/.${shell === 'bash' ? 'bashrc' : 'zshrc'}`,
+        `${consumesInput ? 'read -r answer\n' : ''}cd "$HOME"\n`)
+      // Match the upstream Bash-dialect terminal environment. Even its default
+      // readiness marker must not count as confirmation of our cwd setup.
+      env.PS1 = 'dsh> '
+      env.PROMPT_COMMAND = 'printf "\\033]133;D;%s\\007" "$?"; PS1="dsh> "'
+      if (shell === 'bash') env.DSH_SHELL_INJECTED_PROMPT = env.PROMPT_COMMAND
+      const session = {
+        startSend(request) {
+          const result = runPty(path, posixShellArgs({ shell, path }), { cwd: workdir, env,
+            input: [request.text, ...(consumesInput ? [] : ["printf '\\n'; pwd"]), 'exit'].join('\n') + '\n' })
+          assert.equal(result.status, 0, result.stdout)
+          return { done: Promise.resolve({ viewport: result.stdout }) }
+        },
+        async initialize(signal) {
+          this.motd = (await this.startSend({ text: '', submit: false, signal }).done).viewport
+        },
+      }
+      const original = session.startSend
+      initializePosixSession(session, { shell }, workdir)
+      if (consumesInput) await assert.rejects(session.initialize(), /initialization was not acknowledged/)
+      else {
+        await session.initialize()
+        assert.ok(session.motd.replaceAll('\r', '').includes(`\n${workdir}\n`), session.motd)
+      }
+      assert.equal(session.startSend, original)
+    }
+  })
   test(`${shell} really restores a quoted cwd and keeps state and completion markers`, { skip: !path }, () => {
     const { home, workdir, env } = fixture()
     const selection = { shell, path }
@@ -161,6 +209,27 @@ test('zsh follows user ZDOTDIR changes, reads every startup file and preserves f
     assert.ok(output.includes(workdir), output)
     assert.ok(output.includes('user-status:1'), output)
     assert.ok(output.includes('\x1b]133;D;1\x07'), JSON.stringify(output))
+  })
+
+test('zsh restores readiness after theme hooks, preserves their order and stops after a failing hook',
+  { skip: !installedPath('zsh') }, () => {
+    for (const failure of ['none', 'primary', 'array']) {
+      const { home, workdir, env } = fixture()
+      writeFileSync(`${home}/.zshrc`, [
+        `precmd() { printf 'primary:%s\\n' "$?"; PS1='primary> '; return ${failure === 'primary' ? 17 : 0}; }`,
+        `review_theme() { printf 'array:%s\\n' "$?"; PS1='theme> '; RPS1='right'; return ${failure === 'array' ? 17 : 0}; }`,
+        'review_last() { printf "last:%s\\n" "$?"; PS1="last> "; }',
+        'precmd_functions=(review_theme missing_hook review_last)',
+      ].join('\n') + '\n')
+      const result = runPty(installedPath('zsh'), posixShellArgs({ shell: 'zsh' }), { cwd: home, env,
+        input: [posixPromptSetup({ shell: 'zsh' }, workdir), 'stty -echo',
+          'printf "CHECK_HOOKS\\n"; false', 'exit'].join('\n') + '\n' })
+      const output = result.stdout.replaceAll('\r', '')
+      const afterCommand = output.slice(output.lastIndexOf('CHECK_HOOKS\n') + 'CHECK_HOOKS\n'.length)
+      const hooks = failure === 'primary' ? 'primary:1\n' : failure === 'array'
+        ? 'primary:1\narray:1\n' : 'primary:1\narray:1\nlast:1\n'
+      assert.ok(afterCommand.startsWith(`${hooks}\x1b]133;D;1\x07dsh> `), afterCommand)
+    }
   })
 
 for (const shell of ['csh', 'tcsh']) {

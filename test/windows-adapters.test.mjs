@@ -74,7 +74,11 @@ const mocks = {
       }
       createSession(terminal, config) {
         return { terminal, config, requests: [],
-          startSend(request) { this.requests.push(request); return { done: Promise.resolve() } },
+          startSend(request) {
+            this.requests.push(request)
+            const [, prefix, nonce] = request.text.match(/'(__DSH_SHELL_READY_)' '([\\da-f-]+__)'/)
+            return { done: Promise.resolve({ viewport: '\\n' + prefix + nonce + '\\n' }) }
+          },
           async initialize(signal) { await this.startSend({ text: '', submit: false, signal }).done } }
       }
     }

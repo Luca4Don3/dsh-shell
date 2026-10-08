@@ -1,5 +1,6 @@
 import { isAbsolute } from 'node:path'
 import { realpathSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { quoteBash } from './bash-runtime.mjs'
 
@@ -76,11 +77,13 @@ export function posixPromptSetup(selection, workdir) {
     'PROMPT_COMMAND=__dsh_prompt; PS1="dsh> "',
   ]
   else if (selection.shell === 'zsh') setup = [
-    'if (( $+functions[precmd] )); then functions[__dsh_zsh_user_precmd]=$functions[precmd]; fi',
+    '__dsh_zsh_user_hooks=("${precmd_functions[@]}"); precmd_functions=()',
+    'if (( $+functions[precmd] )); then functions[__dsh_zsh_user_precmd]=$functions[precmd]; __dsh_zsh_user_hooks=(__dsh_zsh_user_precmd "${__dsh_zsh_user_hooks[@]}"); fi',
     '__dsh_zsh_status() { return "$1"; }',
-    'precmd() { typeset -g __dsh_zsh_command_status=$?; if (( $+functions[__dsh_zsh_user_precmd] )); then __dsh_zsh_status "$__dsh_zsh_command_status"; __dsh_zsh_user_precmd; fi; }',
-    '__dsh_zsh_prompt() { printf "\\033]133;D;%d\\007dsh> " "${__dsh_zsh_command_status:-0}"; }',
-    'setopt PROMPT_SUBST; unsetopt PROMPT_SP; PS1=\'$(__dsh_zsh_prompt)\'; RPS1=\'\'',
+    // Dispatch the user's hooks in order, with zsh's original-status and
+    // stop-on-error semantics, then restore the protocol even after an error.
+    'precmd() { local command_status=$? hook hook_status=0; for hook in "${__dsh_zsh_user_hooks[@]}"; do if (( $+functions[$hook] )); then __dsh_zsh_status "$command_status"; "$hook" || { hook_status=$?; break; }; fi; done; printf "\\033]133;D;%d\\007" "$command_status"; unsetopt PROMPT_SP; PS1="dsh> "; RPS1=""; return "$hook_status"; }',
+    'unsetopt PROMPT_SP; PS1="dsh> "; RPS1=""',
   ]
   else if (dialect === 'csh') setup = [
     'set prompt = "`printf \'\\033]133;D;\'`%?`printf \'\\007\'`dsh> "',
@@ -114,11 +117,25 @@ export function initializePosixSession(session, selection, workdir) {
   const initialize = session.initialize.bind(session)
   const setup = posixPromptSetup(selection, workdir)
   session.initialize = async signal => {
+    const nonce = randomUUID()
+    const marker = `__DSH_SHELL_READY_${nonce}__`
+    // Keep the complete marker out of the input: a terminal echo is not an
+    // acknowledgement that setup ran (startup files may consume it via read).
+    const acknowledge = `printf '\\n%s%s\\n' '__DSH_SHELL_READY_' '${nonce}__'`
     const startSend = session.startSend
+    let completion
     // DSH owns readiness, timeout, cancellation and failed-start cleanup.
-    session.startSend = request => startSend.call(session, { ...request, text: setup, submit: true })
+    session.startSend = request => {
+      const operation = startSend.call(session, { ...request, text: `${setup}; ${acknowledge}`, submit: true })
+      completion = operation.done
+      return operation
+    }
     try {
       await initialize(signal)
+      const result = await completion
+      if (!result?.viewport?.replaceAll('\r\n', '\n').includes(`\n${marker}\n`)) {
+        throw new Error('dsh-shell: shell initialization was not acknowledged; startup configuration may have consumed its input')
+      }
     } finally {
       session.startSend = startSend
     }
