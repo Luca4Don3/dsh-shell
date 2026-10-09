@@ -1,5 +1,5 @@
 import { accessSync, constants, lstatSync, readFileSync, realpathSync, statSync } from 'node:fs'
-import { basename, delimiter, join, win32 } from 'node:path'
+import { basename, join, win32 } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { userInfo } from 'node:os'
@@ -36,7 +36,7 @@ function environmentShell(env) {
 function onPaths(command, env, platform, present = exists) {
   const names = platform === 'win32' && !/\.exe$/i.test(command) ? [`${command}.exe`, command] : [command]
   const pathJoin = platform === 'win32' ? win32.join : join
-  return (env.PATH ?? env.Path ?? '').split(platform === 'win32' ? ';' : delimiter).flatMap(entry => {
+  return (env.PATH ?? env.Path ?? '').split(platform === 'win32' ? ';' : ':').flatMap(entry => {
     const directory = platform === 'win32' ? entry.trim().replace(/^"|"$/g, '') : entry
     return directory ? names.map(name => pathJoin(directory, name)).filter(present) : []
   })
