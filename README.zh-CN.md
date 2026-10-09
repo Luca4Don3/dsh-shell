@@ -44,3 +44,7 @@ dsh plugin --profile web add /absolute/path/to/dsh-shell
 - `minimal` 的配置仍是整行覆盖，其 POSIX／fish／C shell 持久适配器校验 DSH `0.2.0-rc.1` 的命令包装协议。DSH 升级后两者都需核对。
 - 本机已用隔离配置实测 Bash、Zsh、sh、dash、ksh、csh、tcsh；fish、mksh、ash 的启动验证待补；Windows / WSL **尚未真机验收**。
 - `npm test` 需要 Node.js 24，PTY 测试另需 Python 3。
+
+## 许可证
+
+[MIT](LICENSE)

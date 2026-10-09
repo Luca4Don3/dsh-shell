@@ -44,3 +44,7 @@ dsh plugin --profile web add /absolute/path/to/dsh-shell
 - The `minimal` preset still replaces a whole row, and its POSIX/fish/C-shell persistent adapter validates the DSH `0.2.0-rc.1` command frame. Re-check both after DSH upgrades.
 - Bash, Zsh, sh, dash, ksh, csh and tcsh are covered by isolated local tests. fish, mksh and ash startup tests are pending, and Windows / WSL has **no Windows-host acceptance run**.
 - `npm test` requires Node.js 24, plus Python 3 for PTY tests only.
+
+## License
+
+[MIT](LICENSE)

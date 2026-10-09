@@ -2,6 +2,7 @@
   "name": "dsh-shell",
   "description": "Select the shell for DSH agent commands and persistent terminals",
   "version": "0.2.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "main": "./index.mjs",
@@ -18,6 +19,7 @@
     "./tool-posix": "./tool-posix.mjs"
   },
   "files": [
+    "LICENSE",
     "client.js",
     "index.mjs",
     "selection.mjs",
