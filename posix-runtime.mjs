@@ -159,11 +159,15 @@ export function initializePosixSession(session, selection, workdir) {
     const startSend = session.startSend
     let completion
     // DSH owns readiness, timeout, cancellation and failed-start cleanup.
+    // Bash used as sh repaints long input through readline, which can corrupt the
+    // compound command before it completes and leave the shell waiting on PS2.
+    // Turn the prompt editor off before the setup that must arrive intact.
+    const prefix = selection.shell === 'sh' ? 'set +o emacs 2>/dev/null; set +o vi 2>/dev/null; ' : ''
     session.startSend = request => {
       // One compound command keeps the acknowledgement coupled to the setup.
       // If startup read consumes the opening line, the unmatched closing brace
       // prevents the remaining lines from claiming successful initialization.
-      const text = posixDialect(selection.shell) === 'posix' ? `{ ${setup}; ${acknowledge}; }` : `${setup}; ${acknowledge}`
+      const text = posixDialect(selection.shell) === 'posix' ? `${prefix}{ ${setup}; ${acknowledge}; }` : `${setup}; ${acknowledge}`
       const operation = startSend.call(session, { ...request, text, submit: true })
       completion = operation.done
       return operation
