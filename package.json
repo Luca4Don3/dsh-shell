@@ -3,6 +3,10 @@
   "description": "Select the shell for DSH agent commands and persistent terminals",
   "version": "0.2.0",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Luca4Don3/dsh-shell.git"
+  },
   "private": true,
   "type": "module",
   "main": "./index.mjs",

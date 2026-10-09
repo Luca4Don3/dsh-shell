@@ -32,13 +32,22 @@ One-shot tools keep their platform names (`bash` on POSIX, `pwsh` on Windows), w
 
 ## Install
 
-Desktop: add the plugin directory from **Plugins**.
+**Desktop** — open **Plugins** in the sidebar, click **Add plugin**, paste one of the specs below, then choose **Enable now** and restart DSH:
 
-CLI-managed Web profile:
+```
+github:Luca4Don3/dsh-shell
+/absolute/path/to/dsh-shell
+```
+
+**CLI-managed Web profile** — `add` both installs and selects the bundle; restart DSH to compose it:
 
 ```bash
+dsh plugin --profile web add github:Luca4Don3/dsh-shell
+# or from a local checkout
 dsh plugin --profile web add /absolute/path/to/dsh-shell
 ```
+
+The `github:` spec downloads over HTTPS from codeload.github.com; an npm mirror does not proxy it, so the host needs reachable GitHub access.
 
 ## Limits
 

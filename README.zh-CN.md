@@ -32,13 +32,22 @@
 
 ## 安装
 
-桌面端：在 **Plugins** 页面添加插件目录。
+**桌面端** —— 侧栏打开「插件」页面，点「添加插件」，粘贴下面任一 spec，再点「立即启用」并重启 DSH：
 
-CLI 管理的 Web profile：
+```
+github:Luca4Don3/dsh-shell
+/absolute/path/to/dsh-shell
+```
+
+**CLI 管理的 Web profile** —— `add` 会同时安装并选中该组合包，重启 DSH 后生效：
 
 ```bash
+dsh plugin --profile web add github:Luca4Don3/dsh-shell
+# 或从本地 checkout 安装
 dsh plugin --profile web add /absolute/path/to/dsh-shell
 ```
+
+`github:` spec 通过 HTTPS 从 codeload.github.com 拉取，npm 镜像不代理它，因此需要宿主机能访问 GitHub。
 
 ## 限制
 
