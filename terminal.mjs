@@ -53,7 +53,7 @@ export function apply(ctx, config) {
   }
   if (initializePosix) spawnTerminal = async spec => {
     const terminal = await ctx.subprocess.spawnTerminal({ ...spec,
-      env: selection.shell === 'bash' ? { ...spec.env,
+      env: ['bash', 'sh'].includes(selection.shell) ? { ...spec.env,
         DSH_SHELL_INJECTED_PROMPT: spec.env.PROMPT_COMMAND ?? '' } : spec.env })
     startupWorkdirs.set(terminal, spec.cwd)
     return terminal

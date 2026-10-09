@@ -19,7 +19,11 @@ status = None
 timed_out = False
 try:
     os.set_blocking(master, False)
-    pending = spec['input'].encode()
+    # Sequential sends model DSH waiting for readiness before the next frame.
+    steps = iter(spec.get('steps', [{'input': spec.get('input', '')}]))
+    step = next(steps, None)
+    pending = step['input'].encode() if step else b''
+    step_start = 0
     deadline = time.monotonic() + 8
     while time.monotonic() < deadline:
         readable, writable, _ = select.select([master], [master] if pending else [], [], 0.05)
@@ -33,6 +37,10 @@ try:
                 if error.errno != errno.EIO:
                     raise
                 break
+        if step and not pending and step.get('waitFor', '').encode() in output[step_start:].replace(b'\r', b''):
+            step = next(steps, None)
+            step_start = len(output)
+            pending = step['input'].encode() if step else b''
         if writable:
             try:
                 sent = os.write(master, pending[:1024])

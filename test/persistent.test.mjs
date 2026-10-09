@@ -10,7 +10,7 @@ const mocks = {
   '@deepseek-ai/dsh-tool-bash-persistent': `
     export const apply = (ctx, config) => {
       ctx.tools.register(globalThis.__persistentDefinition)
-      globalThis.__persistentCalls.push({ dialect: 'bash', config })
+      globalThis.__persistentCalls.push({ dialect: 'bash', config, ctx })
     }
   `,
   '@deepseek-ai/dsh-tool-pwsh-persistent': `
@@ -58,6 +58,24 @@ test('persistent fish, C shell and POSIX parameters describe their syntax while 
     const { config } = globalThis.__persistentCalls.pop()
     assert.match(config.description, new RegExp(`persistent ${shell} shell`))
   }
+})
+
+test('the selected zsh persistent tool translates upstream frames before sending them', () => {
+  const sent = []
+  const ctx = context({ id: 'zsh', shell: 'zsh', dialect: 'bash' })
+  const operation = { done: Promise.resolve() }
+  ctx.terminals.startSend = (owner, id, request) => { sent.push({ owner, id, request }); return operation }
+  apply(ctx, {})
+  const adapted = globalThis.__persistentCalls.pop().ctx
+  const text = "printf '%s\\n' $'__DSH_PERSISTENT_BASH_START_abcd__'; eval -- $'false'; __dsh_persistent_bash_status=$?; printf '%s%s\\n' $'__DSH_PERSISTENT_BASH_END_abcd:' \"$__dsh_persistent_bash_status\""
+  const signal = new AbortController().signal
+  assert.equal(adapted.terminals.startSend('owner', 'id', { text, signal, submit: true }), operation)
+  assert.equal(sent[0].owner, 'owner')
+  assert.equal(sent[0].id, 'id')
+  assert.equal(sent[0].request.signal, signal)
+  assert.equal(sent[0].request.submit, true)
+  assert.match(sent[0].request.text, /__dsh_pending_end=/)
+  assert.ok(sent[0].request.text.endsWith("eval $'false'"))
 })
 
 test('PowerShell retains native-path guidance and explicit descriptions still win', () => {

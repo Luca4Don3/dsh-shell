@@ -50,7 +50,7 @@ export function apply(ctx, config) {
           description: `The ${selection.shell ?? 'bash'} command to run. ${posixSyntaxGuidance(selection.shell ?? 'bash')}` },
       } },
     }))
-  const transport = selection.dialect !== 'pwsh' && ['posix', 'fish', 'csh'].includes(posixDialect(selection.shell ?? 'bash'))
+  const transport = selection.dialect !== 'pwsh' && ['posix', 'fish', 'csh', 'zsh'].includes(posixDialect(selection.shell ?? 'bash'))
     ? withPersistentTransport(adapted, selection.shell) : adapted
   return plugin.apply(transport, { ...config, description })
 }

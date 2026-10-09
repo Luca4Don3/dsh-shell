@@ -24,11 +24,15 @@ function executable(path) {
   }
 }
 
-function environmentShell(env) {
+// The original login shell is only used to inherit exported variables. A host
+// without a usable SHELL (containers, CI) must not stop the plugin from
+// initializing: skip inheritance and report why.
+function environmentShell(env, report) {
   const path = env.SHELL || userInfo().shell || '/bin/sh'
   const shell = basename(path)
   if (!posixShells.includes(shell) || !executable(path)) {
-    throw new Error(`dsh-shell: the original user shell ${JSON.stringify(path)} is unavailable or unsupported`)
+    report?.(`dsh-shell: the original user shell ${JSON.stringify(path)} is unavailable or unsupported; skipping environment inheritance`)
+    return undefined
   }
   return { shell, path }
 }
@@ -187,7 +191,7 @@ export function detectInstalledShells(platform = process.platform, env = process
   return detectPosixShells(env, options)
 }
 
-export function resolveSelection(config, platform = process.platform, env = process.env, installedShells) {
+export function resolveSelection(config, platform = process.platform, env = process.env, installedShells, report) {
   const requested = config.shell ?? 'auto'
   if (requested === 'auto' && config.shellPath) throw new Error('dsh-shell: shellPath requires an explicit shell selection')
   if (requested !== 'wsl' && config.wslDistribution) throw new Error('dsh-shell: wslDistribution requires wsl')
@@ -197,7 +201,7 @@ export function resolveSelection(config, platform = process.platform, env = proc
   if (platform === 'win32' && (posixShells.includes(id) || id.startsWith('posix-'))) throw new Error(`dsh-shell: ${id} requires a POSIX host; select wsl on Windows`)
   if (platform !== 'win32' && (nativeBash || ['pwsh7', 'powershell', 'wsl'].includes(id))) throw new Error(`dsh-shell: ${id} requires Windows`)
   if (id === 'native-pwsh') return { id: 'auto', dialect: 'pwsh' }
-  if (requested === 'auto') return { id: 'auto', dialect: 'bash', shell: 'bash', environmentShell: environmentShell(env) }
+  if (requested === 'auto') return { id: 'auto', dialect: 'bash', shell: 'bash', environmentShell: environmentShell(env, report) }
   if (posixShells.includes(id) || id.startsWith('posix-')) {
     const inventory = installedShells ?? detectInstalledShells(platform, env)
     const found = inventory.find(item => item.id === id)
@@ -206,7 +210,7 @@ export function resolveSelection(config, platform = process.platform, env = proc
     const path = config.shellPath || found?.path
     if (!shell || !path || !executable(path)) throw new Error(`dsh-shell: ${id} executable was not found`)
     if (basename(path) !== shell) throw new Error(`dsh-shell: shellPath must name a ${shell} executable`)
-    return { ...found, id: requested, dialect: posixDialect(shell), path, shell, environmentShell: environmentShell(env) }
+    return { ...found, id: requested, dialect: posixDialect(shell), path, shell, environmentShell: environmentShell(env, report) }
   }
   if (nativeBash) {
     const found = (installedShells ?? detectInstalledShells(platform, env)).find(item => item.id === id)

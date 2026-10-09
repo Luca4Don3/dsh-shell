@@ -35,7 +35,7 @@ class ShellSelection extends Service {
       shell: current(config.shell),
       shellPath: current(config.shellPath),
       wslDistribution: current(config.wslDistribution),
-    }, process.platform, process.env, installedShells)
+    }, process.platform, process.env, installedShells, message => ctx.logger.warn(message))
     this.available = installedShells
   }
 }

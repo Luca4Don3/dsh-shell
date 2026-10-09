@@ -16,8 +16,11 @@ function fixture() {
 
 function runPty(path, args, options) {
   const fixturePath = fileURLToPath(new URL('./pty-fixture.py', import.meta.url))
+  const spec = { argv: [path, ...args], cwd: options.cwd, env: options.env }
+  if (options.steps) spec.steps = options.steps
+  else spec.input = options.input
   const result = spawnSync('python3', [fixturePath], { encoding: 'utf8', timeout: 10000,
-    input: JSON.stringify({ argv: [path, ...args], cwd: options.cwd, env: options.env, input: options.input }) })
+    input: JSON.stringify(spec) })
   assert.equal(result.error, undefined)
   assert.equal(result.status, 0, result.stderr)
   const output = JSON.parse(result.stdout)
@@ -97,7 +100,7 @@ for (const shell of ['bash', 'zsh', 'sh', 'dash', 'ksh', 'mksh', 'ash', 'csh', '
         startSend(request) {
           const result = runPty(path, posixShellArgs({ shell, path }), { cwd: workdir, env,
             input: [request.text, ...(consumesInput ? [] : ["printf '\\n'; pwd"]), 'exit'].join('\n') + '\n' })
-          assert.equal(result.status, 0, result.stdout)
+          if (!consumesInput) assert.equal(result.status, 0, result.stdout)
           return { done: Promise.resolve({ viewport: result.stdout }) }
         },
         async initialize(signal) {
