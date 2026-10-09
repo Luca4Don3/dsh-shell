@@ -419,3 +419,18 @@ test('persistent Bash avoids repeated bashrc side effects and respects login pro
         'printf "startup:%s|%s\\n" "$REVIEW_LOGIN" "$REVIEW_RC_READS"', 'exit'].join('\n') + '\n' })
     assert.ok(result.stdout.includes('startup:login-ok|1'), result.stdout)
   })
+
+// A user shell may enable `set -u`; the prompt variables must already exist,
+// otherwise the hook aborts and completion is never reported.
+test('prompt setup survives a user shell with set -u', () => {
+  const { workdir, env } = fixture()
+  for (const shell of ['bash', 'sh', 'dash', 'ksh']) {
+    const path = installedPath(shell)
+    if (!path) continue
+    const script = ['set -u', posixPromptSetup({ shell }, workdir), 'echo SETU_OK'].join('\n')
+    const run = spawnSync(path, ['-c', script], { encoding: 'utf8', env })
+    assert.equal(run.status, 0, `${shell}: ${run.stderr}`)
+    assert.match(run.stdout, /SETU_OK/, `${shell}: ${run.stderr}`)
+    assert.doesNotMatch(run.stderr, /unbound variable/, `${shell}: ${run.stderr}`)
+  }
+})

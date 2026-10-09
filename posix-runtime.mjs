@@ -40,13 +40,17 @@ function quotePosixInput(value) {
 
 function bashPromptSetup(reportCompletion = false) {
   return [
+    // Declare the prompt variables before any hook runs, and reference them with
+    // a default: a user shell may enable `set -u`, where an unset reference
+    // aborts the hook and the prompt never reports completion.
+    '__dsh_pending_end=""',
     'if [ "${PROMPT_COMMAND-}" = "${DSH_SHELL_INJECTED_PROMPT-}" ]; then unset PROMPT_COMMAND; fi',
     'unset DSH_SHELL_INJECTED_PROMPT',
-    '__dsh_user_prompt=("${PROMPT_COMMAND[@]}")',
+    '__dsh_user_prompt=("${PROMPT_COMMAND[@]:-}")',
     '__dsh_prompt_status() { return "$1"; }',
     '__dsh_prompt() { local status=$? hook; '
-      + (reportCompletion ? 'if [ -n "$__dsh_pending_end" ]; then printf "%s%s\\n" "$__dsh_pending_end" "$status"; __dsh_pending_end=; fi; ' : '')
-      + 'for hook in "${__dsh_user_prompt[@]}"; do __dsh_prompt_status "$status"; eval "$hook"; done; printf "\\033]133;D;%s\\007" "$status"; PS1="dsh> "; }',
+      + (reportCompletion ? 'if [ -n "${__dsh_pending_end:-}" ]; then printf "%s%s\\n" "${__dsh_pending_end:-}" "$status"; __dsh_pending_end=""; fi; ' : '')
+      + 'for hook in "${__dsh_user_prompt[@]:-}"; do __dsh_prompt_status "$status"; eval "$hook"; done; printf "\\033]133;D;%s\\007" "$status"; PS1="dsh> "; }',
     'PROMPT_COMMAND=__dsh_prompt; PS1="dsh> "',
   ]
 }
@@ -130,7 +134,7 @@ export function posixPromptSetup(selection, workdir) {
   ]
   else setup = [
     '__dsh_pending_end=; __dsh_prompt_done=',
-    '__dsh_prompt() { __dsh_status=$?; if [ "${__dsh_prompt_done+x}" != x ] && [ -n "$__dsh_pending_end" ]; then printf "%s%s\\n" "$__dsh_pending_end" "$__dsh_status"; fi; printf "\\033]133;D;%d\\007" "$__dsh_status"; }',
+    '__dsh_prompt() { __dsh_status=$?; if [ "${__dsh_prompt_done+x}" != x ] && [ -n "${__dsh_pending_end:-}" ]; then printf "%s%s\\n" "$__dsh_pending_end" "$__dsh_status"; fi; printf "\\033]133;D;%d\\007" "$__dsh_status"; }',
     // Command substitution cannot clear parent-shell state. The assignment
     // expansion marks this frame reported, so subsequent prompts cannot repeat it.
     'PS1=\'$(__dsh_prompt)${__dsh_prompt_done=}dsh> \'',
