@@ -1,11 +1,20 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join, win32 } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { detectWindowsBash } from '../selection.mjs'
 import { bashProbeArgv, bashRuntimeArgv, runtimeEnvironment, validateBashProbe } from '../bash-runtime.mjs'
+
+// Remove the per-test HOME trees this file creates; without cleanup they
+// accumulate under .temp/ on every run.
+const temporaryDirectories = []
+function track(path) { temporaryDirectories.push(path); return path }
+after(() => {
+  for (const directory of temporaryDirectories) rmSync(directory, { recursive: true, force: true })
+})
+
 
 test('installed Windows Bash starts with user profiles, the requested cwd and one completion marker',
   { skip: process.platform !== 'win32' }, async t => {
@@ -18,7 +27,7 @@ test('installed Windows Bash starts with user profiles, the requested cwd and on
     mkdirSync(directory, { recursive: true })
 
     for (const selection of installations) await t.test(selection.label, () => {
-      const home = mkdtempSync(join(directory, 'windows-bash-'))
+      const home = track(mkdtempSync(join(directory, 'windows-bash-')))
       const workdir = join(home, "O'Reilly workspace")
       mkdirSync(workdir)
       writeFileSync(join(home, '.bash_profile'), 'export DSH_TEST_FROM_PROFILE=profile-ok\n. "$HOME/.bashrc"\n')

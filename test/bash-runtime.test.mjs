@@ -1,9 +1,18 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { assertBashPolicy, assertWindowsWorkdir, bashProbeArgv, bashRuntimeArgv, quoteBash, runtimeEnvironment, validateBashProbe } from '../bash-runtime.mjs'
+
+// Remove the per-test HOME trees this file creates; without cleanup they
+// accumulate under .temp/ on every run.
+const temporaryDirectories = []
+function track(path) { temporaryDirectories.push(path); return path }
+after(() => {
+  for (const directory of temporaryDirectories) rmSync(directory, { recursive: true, force: true })
+})
+
 
 const wsl = { id: 'wsl', path: 'C:\\Windows\\System32\\wsl.exe', distribution: 'Ubuntu Dev', supportsCd: true }
 const git = { id: 'git-bash:test', runtime: 'git-bash', path: 'C:\\Program Files\\Git\\bin\\bash.exe' }
@@ -71,7 +80,7 @@ test('WSL inherits host variables and explicit overrides, preserves flags and ke
 function runControlledBash(persistent, command, input, options = {}) {
   const directory = fileURLToPath(new URL('../.temp/', import.meta.url))
   mkdirSync(directory, { recursive: true })
-  const home = mkdtempSync(`${directory}bash-fixture-`)
+  const home = track(mkdtempSync(`${directory}bash-fixture-`))
   writeFileSync(`${home}/.bashrc`, options.rc ?? 'export DSH_TEST_FROM_RC=loaded\nalias dsh_test_alias="printf alias-ok"\nPROMPT_COMMAND="printf user-hook"\n')
   if (options.profile) writeFileSync(`${home}/.bash_profile`, options.profile)
   const generated = bashRuntimeArgv({ ...git, ...(options.wsl ? { id: 'wsl', distribution: 'fixture', supportsCd: false } : {}), path: '/bin/bash' }, workdir, command, persistent)

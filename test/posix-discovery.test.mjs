@@ -1,8 +1,17 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
-import { chmodSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
+import { after, test } from 'node:test'
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { detectPosixShells, resolveSelection } from '../selection.mjs'
+
+// Remove the per-test HOME trees this file creates; without cleanup they
+// accumulate under .temp/ on every run.
+const temporaryDirectories = []
+function track(path) { temporaryDirectories.push(path); return path }
+after(() => {
+  for (const directory of temporaryDirectories) rmSync(directory, { recursive: true, force: true })
+})
+
 
 test('POSIX discovery covers system shells, Homebrew, MacPorts, PATH and /etc/shells without executing them', () => {
   const paths = new Set(['/bin/bash', '/opt/homebrew/bin/bash', '/bin/zsh', '/bin/sh', '/bin/dash', '/bin/ksh',
@@ -44,7 +53,7 @@ test('legacy family names and existing hashed selections both resolve', { skip: 
 test('POSIX discovery excludes nonexecutable files and broken symlinks', { skip: process.platform === 'win32' }, () => {
   const directory = fileURLToPath(new URL('../.temp/', import.meta.url))
   mkdirSync(directory, { recursive: true })
-  const root = mkdtempSync(`${directory}shell-discovery-`)
+  const root = track(mkdtempSync(`${directory}shell-discovery-`))
   writeFileSync(`${root}/bash`, '#!/bin/sh\n')
   chmodSync(`${root}/bash`, 0o644)
   symlinkSync(`${root}/missing`, `${root}/fish`)

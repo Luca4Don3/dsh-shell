@@ -1,10 +1,19 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
-import { accessSync, constants, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { after, test } from 'node:test'
+import { accessSync, constants, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { adaptPersistentCommand, withPersistentTransport } from '../persistent-runtime.mjs'
 import { posixPromptSetup, posixShellArgs, quotePosixArgument } from '../posix-runtime.mjs'
+
+// Remove the per-test HOME trees this file creates; without cleanup they
+// accumulate under .temp/ on every run.
+const temporaryDirectories = []
+function track(path) { temporaryDirectories.push(path); return path }
+after(() => {
+  for (const directory of temporaryDirectories) rmSync(directory, { recursive: true, force: true })
+})
+
 
 // DSH 0.2.0-rc.1's actual transport contract, including ANSI-C quoting.
 function upstreamFrame(command, nonce) {
@@ -44,7 +53,7 @@ for (const shell of ['bash', 'zsh', 'sh', 'dash', 'ksh', 'mksh', 'ash', 'fish', 
   test(`${shell} executes persistent frames and retains state, cwd, quoting and exit status`, { skip: !path }, () => {
     const directory = fileURLToPath(new URL('../.temp/', import.meta.url))
     mkdirSync(directory, { recursive: true })
-    const home = mkdtempSync(`${directory}persistent-frame-`)
+    const home = track(mkdtempSync(`${directory}persistent-frame-`))
     const workdir = `${home}/O'Reilly ! workspace`
     mkdirSync(workdir)
     const csh = shell === 'csh' || shell === 'tcsh'
@@ -87,7 +96,7 @@ for (const shell of ['bash', 'zsh', 'sh', 'dash', 'ksh', 'mksh', 'ash', 'fish', 
   test(`${shell} transports literal CR and CRLF without changing bytes or losing completion`, { skip: !path }, () => {
     const directory = fileURLToPath(new URL('../.temp/', import.meta.url))
     mkdirSync(directory, { recursive: true })
-    const home = mkdtempSync(`${directory}persistent-cr-`)
+    const home = track(mkdtempSync(`${directory}persistent-cr-`))
     const value = "\rquoted ' value\\backslash !bang\r\nsecond line\r"
     const command = `printf '%s' ${quotePosixArgument(value, shell)} | od -An -v -tx1 | tr -d ' \\n'; printf '\\n'`
     const adapted = adaptPersistentCommand(upstreamFrame(command, 'abcd'), shell)
@@ -115,7 +124,7 @@ for (const shell of ['bash', 'zsh', 'sh', 'dash', 'ksh', 'mksh', 'ash', 'fish', 
   if (shell === 'csh' || shell === 'tcsh') test(`${shell} completes failed expansions and continues the persistent session`, { skip: !path }, () => {
     const directory = fileURLToPath(new URL('../.temp/', import.meta.url))
     mkdirSync(directory, { recursive: true })
-    const home = mkdtempSync(`${directory}persistent-error-`)
+    const home = track(mkdtempSync(`${directory}persistent-error-`))
     writeFileSync(`${home}/.cshrc`, 'alias precmd \'printf "user-status:%s\\n" "$status"; false\'\n')
     const commands = [
       'set REVIEW_STATE=alive',
@@ -150,7 +159,7 @@ for (const shell of ['bash', 'zsh', 'sh', 'dash', 'ksh', 'mksh', 'ash', 'fish', 
 function runFrames(shell, path, commands, startup = '') {
   const directory = fileURLToPath(new URL('../.temp/', import.meta.url))
   mkdirSync(directory, { recursive: true })
-  const home = mkdtempSync(`${directory}persistent-recovery-`)
+  const home = track(mkdtempSync(`${directory}persistent-recovery-`))
   if (startup) writeFileSync(`${home}/.zshrc`, startup)
   const ready = status => `\x1b]133;D;${status}\x07dsh> `
   const steps = [

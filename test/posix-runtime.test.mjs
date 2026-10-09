@@ -1,14 +1,23 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 import { spawnSync } from 'node:child_process'
-import { accessSync, constants, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
+import { accessSync, constants, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { inheritPosixEnvironment, initializePosixSession, posixPromptSetup, posixShellArgs, quotePosixArgument } from '../posix-runtime.mjs'
+
+// Remove the per-test HOME trees this file creates; without cleanup they
+// accumulate under .temp/ on every run.
+const temporaryDirectories = []
+function track(path) { temporaryDirectories.push(path); return path }
+after(() => {
+  for (const directory of temporaryDirectories) rmSync(directory, { recursive: true, force: true })
+})
+
 
 function fixture() {
   const directory = fileURLToPath(new URL('../.temp/', import.meta.url))
   mkdirSync(directory, { recursive: true })
-  const home = mkdtempSync(`${directory}posix-shell-`)
+  const home = track(mkdtempSync(`${directory}posix-shell-`))
   const workdir = `${home}/O'Reilly ! workspace`
   mkdirSync(workdir)
   return { home, workdir, env: { HOME: home, ZDOTDIR: home, PATH: '/usr/bin:/bin', TERM: 'dumb' } }
