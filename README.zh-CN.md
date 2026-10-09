@@ -1,8 +1,10 @@
 # dsh-shell
 
+[![Tests](https://github.com/Luca4Don3/dsh-shell/actions/workflows/test.yml/badge.svg)](https://github.com/Luca4Don3/dsh-shell/actions/workflows/test.yml)
+
 [English](README.md) | 中文
 
-在 DSH 界面选择模型命令与 `minimal` 持久终端使用的 Shell。适配 DSH `0.2.0-rc.1`，`auto` 保持 DSH 原有默认值。
+在 DSH 界面选择模型命令与 `minimal` 持久终端使用的 Shell。面向 DSH `0.2.0-rc.1` 开发（npm 最新为 `0.2.0-rc.2`，尚未验证），`auto` 保持 DSH 原有默认值。
 
 ## 支持环境
 

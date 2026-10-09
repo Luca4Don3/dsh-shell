@@ -1,8 +1,10 @@
 # dsh-shell
 
+[![Tests](https://github.com/Luca4Don3/dsh-shell/actions/workflows/test.yml/badge.svg)](https://github.com/Luca4Don3/dsh-shell/actions/workflows/test.yml)
+
 English | [中文](README.zh-CN.md)
 
-Selects the shell for DSH agent commands and the `minimal` persistent terminal. Targets DSH `0.2.0-rc.1`; `auto` keeps the DSH default.
+Selects the shell for DSH agent commands and the `minimal` persistent terminal. Written for DSH `0.2.0-rc.1` (npm latest is `0.2.0-rc.2`, not yet verified); `auto` keeps the DSH default.
 
 ## Environments
 
