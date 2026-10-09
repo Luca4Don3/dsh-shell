@@ -1,5 +1,5 @@
 import { accessSync, constants, lstatSync, readFileSync, realpathSync, statSync } from 'node:fs'
-import { basename, join, win32 } from 'node:path'
+import { basename, posix, win32 } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { userInfo } from 'node:os'
@@ -35,7 +35,7 @@ function environmentShell(env) {
 
 function onPaths(command, env, platform, present = exists) {
   const names = platform === 'win32' && !/\.exe$/i.test(command) ? [`${command}.exe`, command] : [command]
-  const pathJoin = platform === 'win32' ? win32.join : join
+  const pathJoin = platform === 'win32' ? win32.join : posix.join
   return (env.PATH ?? env.Path ?? '').split(platform === 'win32' ? ';' : ':').flatMap(entry => {
     const directory = platform === 'win32' ? entry.trim().replace(/^"|"$/g, '') : entry
     return directory ? names.map(name => pathJoin(directory, name)).filter(present) : []
@@ -153,7 +153,7 @@ export function detectPosixShells(env = process.env, { present = executable, rea
   }
   return posixShells.flatMap(shell => {
     const candidates = [...new Set([
-      ...['/bin', '/usr/bin', '/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin'].map(dir => join(dir, shell)),
+      ...['/bin', '/usr/bin', '/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin'].map(dir => posix.join(dir, shell)),
       ...registered.filter(path => basename(path) === shell), ...onPaths(shell, env, 'posix', present),
     ])]
     const seen = new Set()
