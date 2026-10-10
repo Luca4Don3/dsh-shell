@@ -54,6 +54,7 @@ dsh plugin --profile web add /absolute/path/to/dsh-shell
 - WSL 只允许 `danger-full-access`，受限模式下明确失败；其他 Windows Shell 继续经过 DSH 沙箱。
 - `minimal` 的配置仍是整行覆盖，其 POSIX／fish／C shell 持久适配器校验 DSH `0.2.0-rc.1` 的命令包装协议。DSH 升级后两者都需核对。
 - 本机已用隔离配置实测 Bash、Zsh、sh、dash、ksh、csh、tcsh；fish、mksh、ash 的启动验证待补；Windows / WSL **尚未真机验收**。
+- 两个用例在托管 CI（`CI=true`）上带 `known:` 跳过：fish 的帧与 sh 的初始化握手在 CI 上失败，本地 macOS 运行则通过。跳过原因写在测试内联处；PTY 交互修好后应移除。
 - `npm test` 需要 Node.js 24，PTY 测试另需 Python 3。
 
 ## 许可证

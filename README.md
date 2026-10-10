@@ -54,6 +54,7 @@ The `github:` spec downloads over HTTPS from codeload.github.com; an npm mirror 
 - WSL requires `danger-full-access` and fails in confined modes; other Windows shells keep DSH's sandbox.
 - The `minimal` preset still replaces a whole row, and its POSIX/fish/C-shell persistent adapter validates the DSH `0.2.0-rc.1` command frame. Re-check both after DSH upgrades.
 - Bash, Zsh, sh, dash, ksh, csh and tcsh are covered by isolated local tests. fish, mksh and ash startup tests are pending, and Windows / WSL has **no Windows-host acceptance run**.
+- Two cases carry a `known:` skip on hosted CI (`CI=true`): the fish frame and sh's initialization handshake fail there while passing in a local macOS run. The skip reason is inline in the test; remove both once the PTY interaction is fixed.
 - `npm test` requires Node.js 24, plus Python 3 for PTY tests only.
 
 ## License
