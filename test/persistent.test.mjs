@@ -48,12 +48,12 @@ test('bash, zsh and WSL retain the shipped persistent-tool guidance', () => {
   }
 })
 
-test('persistent fish, C shell and POSIX parameters describe their syntax while retaining execution', () => {
+test('persistent fish, C shell and POSIX parameters describe their syntax and name while retaining execution', () => {
   for (const shell of ['fish', 'tcsh', 'dash']) {
     const registered = []
     apply(context({ id: shell, shell, dialect: shell === 'tcsh' ? 'csh' : shell === 'dash' ? 'posix' : 'fish' }, registered), {})
     assert.equal(registered[0].execute, globalThis.__persistentDefinition.execute)
-    assert.equal(registered[0].name, 'bash')
+    assert.equal(registered[0].name, shell)
     assert.ok(registered[0].parameters.properties.command.description.includes(shell))
     const { config } = globalThis.__persistentCalls.pop()
     assert.match(config.description, new RegExp(`persistent ${shell} shell`))

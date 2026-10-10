@@ -46,7 +46,7 @@ export function apply(ctx, config) {
   ctx.logger.info(`available agent shells: ${selection.available.map(item => item.id).join(', ')}`)
   const { id, dialect } = selection.selected
   const guidance = id === 'wsl'
-    ? 'The one-shot tool is named `pwsh` by DSH, but it runs Bash inside the selected WSL distribution. Write Bash commands and Linux paths inside command. The workdir parameter must use a Windows host path; it is converted inside the distribution. The persistent tool is named `bash`.'
+    ? 'The one-shot tool runs Bash inside the selected WSL distribution. Write Bash commands and Linux paths inside command. The workdir parameter must use a Windows host path; it is converted inside the distribution.'
     : `The model-facing shell tool runs ${id === 'auto' ? 'the DSH default shell' : selection.selected.label ?? id} (${dialect} syntax).`
   ctx.effect(() => ctx.systemPrompt.section({
     name: 'shell:selected-runtime',

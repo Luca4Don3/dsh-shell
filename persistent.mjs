@@ -28,7 +28,7 @@ function defaultDescription(selection) {
   const shell = selection.id === 'wsl' ? 'bash shell inside WSL'
     : selection.runtime ? `bash shell in ${selection.runtime}` : `${selection.shell ?? 'bash'} shell`
   return [
-    `Run commands in a persistent ${shell}. The tool is named bash for DSH compatibility.`,
+    `Run commands in a persistent ${shell}.`,
     `* ${posixSyntaxGuidance(selection.shell ?? 'bash')}`,
     '* The "command" parameter does NOT need to be XML-escaped.',
     '* Network access depends on the task environment. Prefer configured mirrors/proxies when they are available.',
@@ -45,6 +45,9 @@ export function apply(ctx, config) {
   const plugin = selection.dialect === 'pwsh' ? PwshPersistent : BashPersistent
   const adapted = selection.dialect === 'pwsh' || selection.id === 'auto' ? ctx
     : withToolRegistration(ctx, definition => ({ ...definition,
+      // The session shell follows the selection (WSL reports bash), so the
+      // registered name matches what actually runs the commands.
+      name: selection.shell ?? 'bash',
       parameters: { ...definition.parameters, properties: { ...definition.parameters.properties,
         command: { ...definition.parameters.properties.command,
           description: `The ${selection.shell ?? 'bash'} command to run. ${posixSyntaxGuidance(selection.shell ?? 'bash')}` },

@@ -177,7 +177,7 @@ test('POSIX auto still sends the exact original spec to DSH and zsh retains comm
   assert.match(globalThis.__posixExecutions[1].command, /^exec '\/bin\/zsh' '-l' '-i' '-c' /)
 })
 
-test('tool adaptation changes only guidance and keeps validation, execution and job lifecycle callbacks', () => {
+test('tool adaptation changes guidance and name while keeping validation, execution and job lifecycle callbacks', () => {
   const definition = Object.freeze({ name: 'pwsh', description: 'PowerShell',
     parameters: { type: 'object', properties: { command: { type: 'string' }, workdir: { type: 'string' } } },
     execute() {}, validate() {}, output: { schema: {}, render() {} } })
@@ -199,7 +199,8 @@ test('tool adaptation changes only guidance and keeps validation, execution and 
   assert.match(registered[0].parameters.properties.workdir.description, /Windows host/)
   assert.equal(definition.description, 'PowerShell')
   assert.equal(ctx.tools, tools)
-  assert.equal(registered[0].name, 'pwsh')
+  // The WSL branch runs Bash, so the registered name follows that shell.
+  assert.equal(registered[0].name, 'bash')
 })
 
 function terminalContext(selection, mode = 'danger-full-access', config = {}) {
