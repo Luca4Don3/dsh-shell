@@ -1,4 +1,5 @@
 import * as BashTool from '@deepseek-ai/dsh-tool-bash'
+import { adoptJobKinds } from './job-kinds.mjs'
 import { posixSyntaxGuidance } from './posix-runtime.mjs'
 import { withToolRegistration } from './tool-context.mjs'
 
@@ -23,5 +24,13 @@ export function adaptPosixTool(definition, selection) {
 export function apply(ctx, config) {
   const selection = ctx.shellSelection.selected
   if (selection.id === 'auto') return BashTool.apply(ctx, config)
-  return BashTool.apply(withToolRegistration(ctx, definition => adaptPosixTool(definition, selection)), config)
+  const fiber = ctx.inject(['jobs'], (jobCtx) => {
+    const release = adoptJobKinds(jobCtx.jobs, selection.shell)
+    jobCtx.effect(() => () => release())
+  })
+  const dispose = BashTool.apply(withToolRegistration(ctx, definition => adaptPosixTool(definition, selection)), config)
+  return () => {
+    if (typeof dispose === 'function') dispose()
+    fiber?.dispose?.()
+  }
 }
