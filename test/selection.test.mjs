@@ -39,6 +39,18 @@ test('unused shell settings fail instead of being silently ignored', () => {
   assert.throws(() => resolveSelection({ shell: 'bash', wslDistribution: 'Ubuntu' }, 'darwin'), /requires wsl/)
 })
 
+test('default resolves the official POSIX/Windows dialect without reading environment or inventory', () => {
+  const forbidden = new Proxy({}, { get() { throw new Error('native selection must not read host shell environment') } })
+  for (const platform of ['darwin', 'linux']) {
+    assert.deepEqual(resolveSelection({ shell: 'default' }, platform, forbidden, forbidden),
+      { id: 'default', dialect: 'bash', shell: 'bash' })
+  }
+  assert.deepEqual(resolveSelection({ shell: 'default' }, 'win32', forbidden, forbidden),
+    { id: 'default', dialect: 'pwsh' })
+  assert.throws(() => resolveSelection({ shell: 'default', shellPath: '/bin/zsh' }), /shellPath requires/)
+  assert.throws(() => resolveSelection({ shell: 'default', wslDistribution: 'Debian' }), /requires wsl/)
+})
+
 test('one component serves every Windows selection', () => {
   assert.deepEqual(resolveSelection({ shell: 'auto' }, 'win32', {}, []), { id: 'auto', dialect: 'pwsh' })
   const wsl = resolveSelection({ shell: 'wsl' }, 'win32', {}, [{ id: 'wsl', path: 'wsl.exe', distributions: ['Debian'] }])

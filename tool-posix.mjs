@@ -23,7 +23,7 @@ export function adaptPosixTool(definition, selection) {
 
 export function apply(ctx, config) {
   const selection = ctx.shellSelection.selected
-  if (selection.id === 'auto') return BashTool.apply(ctx, config)
+  if (selection.id === 'auto' || selection.id === 'default') return BashTool.apply(ctx, config)
   const fiber = ctx.inject(['jobs'], (jobCtx) => {
     const release = adoptJobKinds(jobCtx.jobs, selection.shell)
     jobCtx.effect(() => () => release())

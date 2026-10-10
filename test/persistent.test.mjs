@@ -31,6 +31,18 @@ function context(selection, registered = []) {
   return { shellSelection: { selected: selection }, terminals: {}, tools: { register: definition => registered.push(definition) } }
 }
 
+test('default persistent registration uses the original context/config without transport or guidance adaptation', () => {
+  const config = { timeoutMs: 321, description: 'Official configured guide' }
+  const ctx = context({ id: 'default', dialect: 'bash', shell: 'bash' })
+  apply(ctx, config)
+  const registered = globalThis.__persistentCalls.pop()
+  assert.equal(registered.ctx, ctx)
+  assert.equal(registered.config, config)
+  const pwsh = context({ id: 'default', dialect: 'pwsh' })
+  apply(pwsh, config)
+  assert.equal(globalThis.__persistentCalls.pop().config, config)
+})
+
 test('bash, zsh and WSL retain the shipped persistent-tool guidance', () => {
   for (const selection of [
     { id: 'auto', dialect: 'bash', shell: 'bash' },

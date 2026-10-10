@@ -203,7 +203,7 @@ test('tool adaptation changes guidance and name while keeping validation, execut
   assert.equal(registered[0].name, 'bash')
 })
 
-function terminalContext(selection, mode = 'danger-full-access', config = {}) {
+function terminalContext(selection, mode = 'danger-full-access', config = {}, fiber) {
   const calls = []
   const policy = { mode, workspaceRoot: 'C:\\workspace' }
   const ctx = { shellSelection: { selected: selection }, terminals: { registerBackend(backend) { ctx.backend = backend } },
@@ -211,10 +211,52 @@ function terminalContext(selection, mode = 'danger-full-access', config = {}) {
     shell: { resolve: spec => ({ timeoutMs: 60000, ...spec }), verifyBash: async spec => { calls.push({ probe: spec }) } },
     sandbox: { confine: async (argv, resolved) => { calls.push({ confinement: resolved }); return { argv: ['sandbox.exe', ...argv] } } },
     subprocess: { spawnTerminal: spec => { calls.push({ spawn: spec }); return spec } },
+    ...fiber ? { fiber } : {},
   }
   terminal.apply(ctx, config)
   return { ctx, calls }
 }
+
+test('default terminal honors an authored dialect and applies the platform dialect only when absent', () => {
+  const bash = { id: 'default', dialect: 'bash', shell: 'bash' }
+  // Direct apply without a Loader raw config falls back to the platform dialect.
+  const fallback = terminalContext(bash)
+  assert.equal(fallback.ctx.backend.config.shellDialect, 'bash')
+  // A Loader carried raw config with an explicit dialect keeps that authored value.
+  const authored = terminalContext(bash, 'danger-full-access', { shellDialect: 'pwsh', timeoutMs: 12 },
+    { _config: { shellDialect: 'pwsh', timeoutMs: 12 } })
+  assert.equal(authored.ctx.backend.config.shellDialect, 'pwsh')
+  assert.equal(authored.ctx.backend.config.timeoutMs, 12)
+})
+
+test('default bypasses selected terminal construction and rejects direct SelectedExecutor assembly', () => {
+  for (const dialect of ['bash', 'pwsh']) {
+    const selection = { id: 'default', dialect, ...(dialect === 'bash' ? { shell: 'bash' } : {}) }
+    const { ctx, calls } = terminalContext(selection)
+    assert.equal(ctx.backend.constructor.name, 'BashTerminalBackend')
+    assert.equal(ctx.backend.ctx, ctx)
+    assert.equal(ctx.backend.config.shellDialect, dialect)
+    assert.equal(calls.length, 0)
+    assert.throws(() => new SelectedWindowsExecutor({ shellSelection: { selected: selection } }, {}), /not a SelectedExecutor/)
+  }
+})
+
+test('default POSIX tool retains official registration and never adopts the job registry', () => {
+  const definition = { name: 'bash', description: 'Official', parameters: { properties: { command: {} } } }
+  globalThis.__definition = definition
+  const jobs = { start() {} }
+  const start = jobs.start
+  const registered = []
+  const dependencies = []
+  const ctx = { shellSelection: { selected: { id: 'default', dialect: 'bash', shell: 'bash' } },
+    get() {}, tools: { register(value) { registered.push(value); return () => {} } },
+    inject(names) { dependencies.push(names) }, jobs }
+  posixTool.apply(ctx, {})
+  assert.equal(registered[0], definition)
+  assert.equal(jobs.start, start)
+  // Only the official tool's jobs dependency, not an additional adopter fiber.
+  assert.equal(dependencies.length, 1)
+})
 
 test('persistent Bash and PowerShell inherit the shipped terminal default resolution', async () => {
   for (const selection of [

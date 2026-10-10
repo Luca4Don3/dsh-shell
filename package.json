@@ -1,7 +1,7 @@
 {
   "name": "dsh-shell",
   "description": "Select the shell for DSH agent commands and persistent terminals",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -14,6 +14,7 @@
     ".": "./index.mjs",
     "./client": "./client.js",
     "./shell": "./shell.mjs",
+    "./assembly": "./assembly.mjs",
     "./shell-windows": "./shell-windows.mjs",
     "./terminal": "./terminal.mjs",
     "./persistent": "./persistent.mjs",
@@ -28,6 +29,7 @@
     "index.mjs",
     "selection.mjs",
     "shell.mjs",
+    "assembly.mjs",
     "shell-windows.mjs",
     "bash-runtime.mjs",
     "tool-windows.mjs",
@@ -57,7 +59,11 @@
       "platform": "web"
     }
   },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": "0.2.0-rc.2"
+  },
   "scripts": {
-    "test": "node --test --test-concurrency=1"
+    "test": "node --test --test-concurrency=1",
+    "test:native": "node -e \"if (!process.env.DSH_OFFICIAL_ROOT) throw new Error('Set DSH_OFFICIAL_ROOT to an isolated DSH 0.2.0-rc.2 installation')\" && node --test --test-concurrency=1 test/native-assembly.test.mjs test/native-differential.test.mjs test/native-jobs.test.mjs test/native-profile-lifecycle.test.mjs"
   }
 }

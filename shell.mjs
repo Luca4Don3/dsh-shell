@@ -11,6 +11,9 @@ export class SelectedPosixExecutor extends SandboxBashExecutor {
   static inject = [...SandboxBashExecutor.inject, 'shellSelection']
 
   constructor(ctx, config) {
+    if (ctx.shellSelection.selected.id === 'default') {
+      throw new Error('dsh-shell: default requires dsh-shell/assembly, not a SelectedExecutor; update the profile and restart DSH')
+    }
     super(ctx, config)
     this.selection = ctx.shellSelection.selected
   }

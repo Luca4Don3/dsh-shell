@@ -10,6 +10,10 @@ window.__ModuleLoader__.load({
       title: 'Shell environment',
       shell: 'Shell',
       distribution: 'WSL distribution',
+      modeAuto: 'Auto preserves dsh-shell startup and environment inheritance behavior.',
+      modeDefault: 'Default uses DSH native Bash / PowerShell, jobs and terminals. No dsh-shell startup scripts or login-shell environment inheritance.',
+      modeManual: 'Manual uses the selected dsh-shell adapter and its startup configuration.',
+      restart: 'Mode changes require restarting DSH and creating a new session. Live switching is not supported.',
       loading: 'Loading available shells…',
       unavailable: 'Shell settings are unavailable.',
       noChoices: 'The host did not provide shell choices.',
@@ -24,6 +28,10 @@ window.__ModuleLoader__.load({
       title: 'Shell 环境',
       shell: 'Shell',
       distribution: 'WSL 发行版',
+      modeAuto: 'Auto 保留 dsh-shell 原有启动方式和环境继承行为。',
+      modeDefault: 'Default 使用 DSH 原生 Bash / PowerShell、Job 和终端；不加载 dsh-shell 初始化脚本，不通过登录 Shell 采集环境。',
+      modeManual: '手动选择继续使用对应的 dsh-shell 适配器和 Shell 启动配置。',
+      restart: '切换模式后必须重启 DSH 并新建会话，不支持运行中热切换。',
       loading: '正在读取本机可用的 Shell…',
       unavailable: 'Shell 配置暂不可用。',
       noChoices: 'Host 未提供可用的 Shell 选项。',
@@ -60,7 +68,7 @@ window.__ModuleLoader__.load({
       }
       const next = {
         shell: draft.shell,
-        shellPath: draft.shell === base.shell ? base.shellPath ?? null : null,
+        shellPath: draft.shell !== 'default' && draft.shell === base.shell ? base.shellPath ?? null : null,
         wslDistribution: draft.shell === 'wsl' ? draft.wslDistribution : null,
       }
       return Object.entries(next).flatMap(([field, value]) =>
@@ -147,6 +155,8 @@ window.__ModuleLoader__.load({
               setMessage('')
             },
           }, shellItems.map(({ value, label }) => h('option', { key: value, value }, label)))),
+          h('p', { style: { margin: 0 } }, t(draft.shell === 'auto' ? 'modeAuto' : draft.shell === 'default' ? 'modeDefault' : 'modeManual')),
+          h('p', { style: { margin: 0 } }, t('restart')),
           draft.shell === 'wsl' && distributions.length > 0
             ? h('label', { style: fieldStyle }, t('distribution'), h('select', {
               value: draft.wslDistribution,

@@ -40,6 +40,17 @@ test('switching shells clears an incompatible custom path', () => {
   ])
 })
 
+test('default is a host-provided choice and clears manual path/WSL settings', () => {
+  const edits = client.operations({ shell: 'wsl', shellPath: 'old-path', wslDistribution: 'Ubuntu' },
+    { shell: 'default' }, ['auto', 'default', 'wsl'], ['Ubuntu'])
+  assert.deepEqual(JSON.parse(JSON.stringify(edits)), [
+    { op: 'set', path: ['shell'], value: 'default' },
+    { op: 'set', path: ['shellPath'], value: null },
+    { op: 'set', path: ['wslDistribution'], value: null },
+  ])
+  assert.throws(() => client.operations({}, { shell: 'default' }, ['auto'], []), /unavailable/)
+})
+
 test('the selected WSL distribution is saved and unavailable choices fail', () => {
   const edits = client.operations(
     { shell: 'wsl', wslDistribution: 'Ubuntu' },

@@ -14,7 +14,7 @@ registerHooks({ resolve(id, ctx, next) {
     }
   `)}`, shortCircuit: true }
 } })
-const { default: SelectedPreset, adaptPresetConfig } = await import('../preset.mjs')
+const { default: SelectedPreset, adaptPresetConfig, installPresetSelection } = await import('../preset.mjs')
 const config = { id: 'custom', order: 7, description: 'Keep this', plugins: [
   { id: 'persona', name: 'original-persona', config: { instruction: 'Keep this too' } },
   { id: 'tool-pwsh', name: '@deepseek-ai/dsh-tool-pwsh', disabled: false, config: { enableRunInBackground: false } },
@@ -39,7 +39,7 @@ test('Windows preset adaptation replaces nested pwsh registrations and preserves
 test('POSIX preset configuration stays identical and shipped loader contracts are inherited', () => {
   assert.equal(adaptPresetConfig(config, 'darwin'), config)
   assert.equal(adaptPresetConfig(config, 'linux'), config)
-  assert.deepEqual(SelectedPreset.inject, ['agentPresets'])
+  assert.deepEqual(SelectedPreset.inject, ['agentPresets', 'shellSelection'])
   assert.equal(SelectedPreset.Config.originalSchema, true)
   assert.equal(SelectedPreset[Symbol.for('preset-loader-marker')], true)
 })
@@ -59,17 +59,59 @@ test('POSIX presets adapt nested Bash registrations without changing the authore
   }
 })
 
-test('all shipped one-shot presets route their tool rows through this bundle', () => {
+test('shipped preset patches add a dependency without replacing authored configs', () => {
   const patch = readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf8')
-  for (const id of ['standard', 'ptc', 'cordis']) {
-    assert.match(patch, new RegExp(`- id: preset-${id}\n  config:`))
+  for (const id of ['standard', 'ptc', 'cordis', 'minimal']) {
+    assert.match(patch, new RegExp(`- id: preset-${id}\\n  name: '@deepseek-ai/dsh-agent-preset'\\n  inject: \\[.*shellSelection`))
   }
-  // A preset row keeps its one-shot tool names inside `config.plugins`, which the
-  // patch entry map never indexes; reaching them means replacing the whole config.
-  // A top-level entry that swaps a row's module by writing `name` is silently
-  // skipped by the loader (name is an identity check, never assigned), so assert
-  // that none exist and that every preset carries both adapters.
-  assert.doesNotMatch(patch, /- id: [\w-]+\n  name: dsh-shell\//)
-  assert.equal((patch.match(/dsh-shell\/tool-posix/g) || []).length, 3)
-  assert.equal((patch.match(/dsh-shell\/tool-windows/g) || []).length, 3)
+  assert.doesNotMatch(patch, /- id: preset-[\w-]+\n(?:[^\n]*\n)*?  config:/)
+  assert.doesNotMatch(patch, /plugins:/)
+})
+
+test('default preserves complete authored presets by identity on all platforms', () => {
+  for (const platform of ['darwin', 'linux', 'win32']) {
+    assert.equal(adaptPresetConfig(config, platform, { id: 'default' }), config)
+  }
+})
+
+test('manual minimal adaptation preserves user settings and child expressions without mutation', () => {
+  const source = { id: 'minimal', extra: 'preserve', plugins: [
+    { name: 'persona', config: { custom: 'preserve' } },
+    { name: 'cordis:group', group: true, isolate: { terminals: true }, config: [
+      { id: 'terminal-pwsh', name: '@deepseek-ai/dsh-terminal-bash', disabled: { __jsExpr: 'platformCheck' },
+        config: { shellDialect: 'pwsh', timeoutMs: 321, rows: 20 } },
+      { id: 'persistent-pwsh', name: '@deepseek-ai/dsh-tool-pwsh-persistent', config: { description: 'User guide', timeoutMs: 654 } },
+    ] },
+  ] }
+  const before = structuredClone(source)
+  const adapted = adaptPresetConfig(source, 'win32', { id: 'pwsh7', dialect: 'pwsh' })
+  assert.equal(adapted.plugins[0], source.plugins[0])
+  const children = adapted.plugins[1].config
+  assert.equal(children[0].name, 'dsh-shell/terminal')
+  assert.equal(children[0].disabled, source.plugins[1].config[0].disabled)
+  assert.deepEqual(children[0].config, { timeoutMs: 321, rows: 20 })
+  assert.equal(children[1].name, 'dsh-shell/persistent')
+  assert.equal(children[1].config.description, 'User guide')
+  assert.deepEqual(source, before)
+})
+
+test('the runtime hook targets only the four official carriers, never custom declarations', () => {
+  let hook
+  const ctx = { shellSelection: { selected: { id: 'auto' } }, on(name, callback, options) {
+    assert.equal(name, 'internal/config'); assert.equal(options.global, true); hook = callback
+  } }
+  installPresetSelection(ctx)
+  const AgentPreset = Object.getPrototypeOf(SelectedPreset)
+  const carrier = id => ({ runtime: { callback: AgentPreset },
+    entry: { options: { id, name: '@deepseek-ai/dsh-agent-preset', config } } })
+  assert.equal(hook.call(carrier('custom'), config, () => config), config)
+  const changed = hook.call(carrier('preset-standard'), config, () => config)
+  // POSIX leaves this Windows-only fixture untouched; use a native-platform row.
+  const fixture = { ...config, plugins: [{ name: process.platform === 'win32'
+    ? '@deepseek-ai/dsh-tool-pwsh' : '@deepseek-ai/dsh-tool-bash' }] }
+  assert.notEqual(hook.call(carrier('preset-standard'), fixture, () => fixture), fixture)
+  ctx.shellSelection.selected = { id: 'default' }
+  assert.equal(hook.call(carrier('preset-minimal'), fixture, () => fixture), fixture)
+  assert.equal(carrier('preset-standard').entry.options.config, config)
+  assert.equal(changed.id, config.id)
 })

@@ -41,6 +41,10 @@ function defaultDescription(selection) {
 
 export function apply(ctx, config) {
   const selection = ctx.shellSelection.selected
+  if (selection.id === 'default') {
+    const plugin = selection.dialect === 'pwsh' ? PwshPersistent : BashPersistent
+    return plugin.apply(ctx, config)
+  }
   const description = config.description || defaultDescription(selection)
   const plugin = selection.dialect === 'pwsh' ? PwshPersistent : BashPersistent
   const adapted = selection.dialect === 'pwsh' || selection.id === 'auto' ? ctx

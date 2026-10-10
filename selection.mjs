@@ -193,9 +193,13 @@ export function detectInstalledShells(platform = process.platform, env = process
 
 export function resolveSelection(config, platform = process.platform, env = process.env, installedShells, report) {
   const requested = config.shell ?? 'auto'
-  if (requested === 'auto' && config.shellPath) throw new Error('dsh-shell: shellPath requires an explicit shell selection')
+  if (['auto', 'default'].includes(requested) && config.shellPath) throw new Error('dsh-shell: shellPath requires an explicit shell selection')
   if (requested !== 'wsl' && config.wslDistribution) throw new Error('dsh-shell: wslDistribution requires wsl')
   if (requested === 'wsl' && config.shellPath) throw new Error('dsh-shell: shellPath is not supported for wsl')
+  // No detection, environment-shell selection or executable override in native mode.
+  if (requested === 'default') return platform === 'win32'
+    ? { id: 'default', dialect: 'pwsh' }
+    : { id: 'default', dialect: 'bash', shell: 'bash' }
   const id = requested === 'auto' ? (platform === 'win32' ? 'native-pwsh' : 'bash') : requested
   const nativeBash = /^(git-bash|msys2|cygwin):/.test(id)
   if (platform === 'win32' && (posixShells.includes(id) || id.startsWith('posix-'))) throw new Error(`dsh-shell: ${id} requires a POSIX host; select wsl on Windows`)

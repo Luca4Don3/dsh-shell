@@ -22,7 +22,7 @@ test('the bundle declares one shell component for every platform', () => {
 test('the shell component is never disabled by a platform expression', () => {
   assert.doesNotMatch(row('selected-shell'), /disabled:/)
   assert.doesNotMatch(row('selected-shell'), /process\.platform/)
-  assert.match(row('selected-shell'), /name: dsh-shell\/shell/)
+  assert.match(row('selected-shell'), /name: dsh-shell\/assembly/)
 })
 
 test('the shell module exports the executor its platform needs', () => {
