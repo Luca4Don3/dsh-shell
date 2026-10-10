@@ -37,6 +37,7 @@
     "posix-runtime.mjs",
     "bash-startup.bash",
     "tool-posix.mjs",
+    "job-kinds.mjs",
     "tool-context.mjs",
     "cordis.patch.yml",
     "README.md",
