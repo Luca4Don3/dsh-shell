@@ -35,10 +35,12 @@ export function apply(ctx, config) {
   const selection = ctx.shellSelection.selected
   if (selection.id === 'default') {
     // An authored raw config decides its own dialect; only an absent row falls
-    // back to the native platform default. ctx.fiber._config is that raw config
-    // when this plugin runs from a preset row; a direct apply passes it resolved.
-    const raw = ctx.fiber?._config
-    const explicit = typeof raw === 'object' && raw !== null && 'shellDialect' in raw
+    // back to the native platform default. Prefer the loader's public entry
+    // options; the fiber's raw config is the fallback for direct applies. An
+    // expression-authored config keeps its resolved value untouched.
+    const row = ctx.fiber?.entry?.options
+    const raw = row && typeof row.config === 'object' && row.config !== null ? row.config : ctx.fiber?._config
+    const explicit = typeof raw === 'object' && raw !== null && ('shellDialect' in raw || '__jsExpr' in raw)
     return applyTerminal(ctx, explicit ? config : { ...config, shellDialect: selection.dialect })
   }
   if (config.shellPath || config.shellArgs?.length || (config.shellDialect && config.shellDialect !== 'bash')) {

@@ -56,6 +56,7 @@ if (official.skip) {
         id: 'user-preset', plugins: [{ id: 'user-tool', name: 'user-owned-plugin', config: { preserve: true } }],
       } }] },
       { id: 'dsh-shell', config: shell === 'auto' ? { shell: 'auto' }
+        : shell === 'default' ? { shell: 'default' }
         : { shell: 'bash', shellPath: '/isolated-user-selected/bash' } },
     ]
   }
@@ -98,7 +99,9 @@ if (official.skip) {
   })
 
   test('adding, disabling, removing, and re-adding the bundle recomposes from source without mutating user config', () => {
-    for (const mode of ['auto', 'manual']) {
+    // Default is included: disabling must restore the official executor rows
+    // with the user's overrides intact, and re-adding must recompose from source.
+    for (const mode of ['auto', 'manual', 'default']) {
       const authored = freeze(userLayer(mode))
       const snapshot = structuredClone(authored)
       const baseline = compose(false, authored)

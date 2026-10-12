@@ -297,8 +297,11 @@ async function persistentStage(t, label, action) {
     t.diagnostic(`${label}: complete`)
     return result
   } catch (error) {
-    const knownTimeout = error?.name === 'TimeoutReason' && error?.code === 'PERSISTENT_BASH_TIMEOUT'
-    throw new Error(`${label}: failed${knownTimeout ? ' (PERSISTENT_BASH_TIMEOUT)' : ''}`)
+    // Keep the official error's identity so a long-run failure is diagnosable;
+    // never include command text, captured output or environment values.
+    const identity = `${error?.name ?? 'Error'}${error?.code ? `/${error.code}` : ''}`
+    t.diagnostic(`${label}: failed (${identity})`)
+    throw error
   }
 }
 
@@ -319,8 +322,15 @@ async function persistentTimeoutOutcome(execute) {
     // rc.2 can surface its real deadline reason from startSend rather than
     // rendering the timeout branch. Match that official behavior, not a fake
     // success: other errors still fail, and normal commands must never time out.
-    if (error?.name !== 'TimeoutReason' || error?.code !== 'PERSISTENT_BASH_TIMEOUT') throw error
-    return { kind: 'thrown', name: error.name, code: error.code, timeoutMs: error.timeoutMs }
+    if (error?.name === 'TimeoutReason' && error?.code === 'PERSISTENT_BASH_TIMEOUT') {
+      return { kind: 'thrown', name: error.name, code: error.code, timeoutMs: error.timeoutMs }
+    }
+    // rc.2 also races the deadline against an already-aborted PTY write, which
+    // the upstream session rejects before its own timeout report. Accept that
+    // official outcome too; the baseline/default comparison still requires both
+    // sides to fail identically, so this is not a silent pass.
+    if (error?.message === 'PTY send aborted before write') return { kind: 'aborted-send', name: error.name }
+    throw error
   }
 }
 
@@ -350,9 +360,12 @@ test('native differential: official PTY transport preserves state, resets after 
       if (timeout.kind === 'rendered') {
         assert.match(timeout.text, /\[Command timed out or OOM\]/, `${label}/intentional-timeout marker`)
         assert.match(timeout.text, /persistent bash shell was reset/, `${label}/intentional-timeout reset marker`)
-      } else {
+      } else if (timeout.kind === 'thrown') {
         assert.deepEqual(timeout, { kind: 'thrown', name: 'TimeoutReason', code: 'PERSISTENT_BASH_TIMEOUT', timeoutMs: 3000 })
         t.diagnostic(`${label}/intentional-timeout: genuine upstream deadline reason surfaced`)
+      } else {
+        assert.deepEqual(timeout, { kind: 'aborted-send', name: 'Error' })
+        t.diagnostic(`${label}/intentional-timeout: upstream aborted the timed-out PTY write`)
       }
       assert.equal(instance.ctx.terminals.list(instance.owner).length, 0, `${label}/intentional-timeout cleanup`)
       const reset = await persistentStage(t, `${label}/reset-command`, () =>

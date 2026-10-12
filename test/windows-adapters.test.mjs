@@ -222,11 +222,16 @@ test('default terminal honors an authored dialect and applies the platform diale
   // Direct apply without a Loader raw config falls back to the platform dialect.
   const fallback = terminalContext(bash)
   assert.equal(fallback.ctx.backend.config.shellDialect, 'bash')
-  // A Loader carried raw config with an explicit dialect keeps that authored value.
+  // A Loader entry row carrying an explicit dialect keeps that authored value.
   const authored = terminalContext(bash, 'danger-full-access', { shellDialect: 'pwsh', timeoutMs: 12 },
-    { _config: { shellDialect: 'pwsh', timeoutMs: 12 } })
+    { entry: { options: { config: { shellDialect: 'pwsh', timeoutMs: 12 } } } })
   assert.equal(authored.ctx.backend.config.shellDialect, 'pwsh')
   assert.equal(authored.ctx.backend.config.timeoutMs, 12)
+  // An expression-authored config keeps its resolved value, not the fallback.
+  const expression = terminalContext(bash, 'danger-full-access', { shellDialect: 'bash', timeoutMs: 34 },
+    { entry: { options: { config: { __jsExpr: 'authoredExpression' } } } })
+  assert.equal(expression.ctx.backend.config.shellDialect, 'bash')
+  assert.equal(expression.ctx.backend.config.timeoutMs, 34)
 })
 
 test('default bypasses selected terminal construction and rejects direct SelectedExecutor assembly', () => {
