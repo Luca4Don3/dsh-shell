@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // its node_modules directory or the active ~/.dsh profile. No install occurs.
 // DSH_OFFICIAL_ROOT=/path/to/dsh node --test test/native-differential.test.mjs
 const officialRoot = process.env.DSH_OFFICIAL_ROOT
-const unavailable = !officialRoot && 'set DSH_OFFICIAL_ROOT to an isolated DSH 0.2.0-rc.2 installation'
+const unavailable = !officialRoot && 'set DSH_OFFICIAL_ROOT to an isolated DSH 0.2.1-rc.2 installation'
 const repository = fileURLToPath(new URL('../', import.meta.url))
 let officialRequire, cordis, Loader, Projection, Policy, LocalSandbox, Subprocess, Terminals
 let BashExecutor, PwshExecutor, BashTool, PwshTool, OfficialTerminal, BashPersistent, PwshPersistent
@@ -29,7 +29,7 @@ if (officialRoot) {
   } })
   for (const name of ['dsh-bash-sandbox', 'dsh-tool-bash', 'dsh-terminal-bash', 'dsh-tool-bash-persistent']) {
     const manifest = JSON.parse(readFileSync(officialRequire.resolve(`@deepseek-ai/${name}/package.json`), 'utf8'))
-    assert.equal(manifest.version, '0.2.0-rc.2', 'the differential baseline must use the pinned official release')
+    assert.equal(manifest.version, '0.2.1-rc.2', 'the differential baseline must use the pinned official release')
   }
   cordis = await import('@deepseek-ai/cordis')
   ;({ Loader } = await import('@deepseek-ai/cordis-plugin-loader'))
@@ -274,6 +274,9 @@ test('native differential: default retains genuine workspace sandbox denial and 
 async function persistentRuntime(t, files, candidate) {
   const ctx = await runtime(t, files, 'danger-full-access', candidate)
   await mount(ctx, Terminals)
+  // DSH 0.2.1 tools require this host service even when the fixture's session
+  // already has a stable cwd and no directory change is requested.
+  ctx.provide('workingDirectory', { async ensure(agent) { return agent.session.header.cwd } })
   const definitions = []
   ctx.reflect.provide('tools', { register(value) { definitions.push(value); return () => {} } })
   const owners = new Map()
@@ -304,7 +307,7 @@ async function persistentStage(t, label, action) {
 
 function normalizeIntentionalSleepTimeout(text) {
   // Only the no-user-output `sleep 10` timeout uses this normalization. The
-  // genuine rc.2 wrapper can leave its END_<randomUUID()>:130 line in partial
+  // DSH 0.2.1-rc.2 can leave its END_<randomUUID()>:130 line in partial
   // output after SIGINT. Independent baseline/default calls necessarily use
   // different UUIDv4 nonces; preserve the status, markers and all other bytes.
   // Never apply this to ordinary command output or unrelated UUIDs/fields.
@@ -316,7 +319,7 @@ async function persistentTimeoutOutcome(execute) {
   try {
     return { kind: 'rendered', text: normalizeIntentionalSleepTimeout(await execute('sleep 10')) }
   } catch (error) {
-    // rc.2 can surface its real deadline reason from startSend rather than
+    // DSH 0.2.1-rc.2 can surface its real deadline reason from startSend rather than
     // rendering the timeout branch. Match that official behavior, not a fake
     // success: other errors still fail, and normal commands must never time out.
     if (error?.name !== 'TimeoutReason' || error?.code !== 'PERSISTENT_BASH_TIMEOUT') throw error
