@@ -64,15 +64,15 @@ if (official.skip) {
       message => warnings.push(message))
   }
 
-  test('the current install manifest is accepted on rc.2 and rejected on rc.1 by official compatibility policy', () => {
+  test('the current install manifest is accepted on 0.2.1-rc.2 and rejects the old 0.2.0-rc.2 host', () => {
     const original = structuredClone(manifest)
-    assert.equal(getDshRuntimeVersion(), '0.2.0-rc.2')
-    assert.equal(manifest.peerDependencies['@deepseek-ai/dsh'], '0.2.0-rc.2')
+    assert.equal(getDshRuntimeVersion(), '0.2.1-rc.2')
+    assert.equal(manifest.peerDependencies['@deepseek-ai/dsh'], '0.2.1-rc.2')
     assert.equal(evaluatePluginCompatibility(manifest), undefined)
-    assert.equal(evaluatePluginCompatibility(manifest, {}, '0.2.0-rc.2'), undefined)
-    const rejected = evaluatePluginCompatibility(manifest, {}, '0.2.0-rc.1')
+    assert.equal(evaluatePluginCompatibility(manifest, {}, '0.2.1-rc.2'), undefined)
+    const rejected = evaluatePluginCompatibility(manifest, {}, '0.2.0-rc.2')
     assert.deepEqual(rejected, { name: manifest.name, version: manifest.version,
-      runtimeVersion: '0.2.0-rc.1', peers: { '@deepseek-ai/dsh': '0.2.0-rc.2' }, exempted: false })
+      runtimeVersion: '0.2.0-rc.2', requirements: { '@deepseek-ai/dsh': '0.2.1-rc.2' }, exempted: false })
     assert.deepEqual(manifest, original)
     assert.equal(manifest.exports['./assembly'], './assembly.mjs')
     assert.ok(manifest.files.includes('assembly.mjs'))

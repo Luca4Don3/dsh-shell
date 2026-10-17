@@ -59,6 +59,9 @@ if (unavailable) {
     await ctx.effect(() => ctx.jobs.attachController('native-jobs-controller'))
     await ctx.plugin(shellEnvModule.apply ? shellEnvModule : shellEnvModule.default)
     await ctx.plugin(SandboxBashExecutor, { cwd: workspaceRoot, timeoutMs: 4321, graceMs: 5000 })
+    // DSH 0.2.1's official bash tool injects workingDirectory even when the
+    // execution fixture has no agent/session and never calls ensure().
+    ctx.provide('workingDirectory', { async ensure() { return workspaceRoot } })
     ctx.provide('shellSelection', { selected: selection })
     const definitions = []
     ctx.provide('tools', { register(definition) { definitions.push(definition); return () => {} } })
@@ -97,7 +100,7 @@ if (unavailable) {
       const background = await harness.definitions[0].execute(
         { command: "printf 'native-job'", description: "start a native background job", run_in_background: true }, executionContext(signal))
       assert.equal(background.kind, 'background')
-      assert.match(background.jobId, /^bash-\d+$/)
+      assert.match(background.jobId, /^bash-[a-z0-9-]+$/)
       const liveJobs = harness.ctx.get('jobs')
       const view = liveJobs.get(background.jobId)
       assert.equal(view.kind, 'bash')
