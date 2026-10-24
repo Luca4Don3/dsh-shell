@@ -4,7 +4,7 @@
 
 English | [中文](README.zh-CN.md)
 
-Selects the shell for DSH agent commands and the `minimal` persistent terminal. v0.3.0 adds **Default Native Passthrough**, verified against DSH `0.2.0-rc.2`. The saved default remains `auto`; existing selections are not migrated.
+Selects the shell for DSH agent commands and the `minimal` persistent terminal. v0.3.2 adds **Default Native Passthrough** and accepts DSH `>=0.2.1-rc.2 <0.3.0`. The saved default remains `auto`; existing selections are not migrated.
 
 ## Modes
 
@@ -16,7 +16,7 @@ Selects the shell for DSH agent commands and the `minimal` persistent terminal. 
 
 Default does not instantiate a SelectedExecutor, wrap shell commands, collect a login-shell environment, inject dsh-shell startup code, rewrite tool registrations or adopt Job kinds. Bash jobs keep official `kind: 'bash'`, IDs, owners, lifecycle, cancellation, timeout and output management. It leaves DSH's parent-environment scrubbing, allowed `env`/`dshEnv` injection, sandbox and approvals intact. Credentials filtered by official DSH stay filtered; Default does not make every ambient variable available.
 
-Verified on macOS 15+ (arm64) with DSH `0.2.0-rc.2`: the official executor class mounts by identity with the official row's configuration and expression scope, jobs, terminal and persistent registration differ from the official modules only in the adapter's own rows, and the real sandbox, subprocess and PTY outcomes match the official baseline. Windows and WSL behavior is asserted with the real official modules on a simulated platform, not on a Windows host.
+Verified on macOS 15+ (arm64) with an extracted official DSH tree: the official executor class mounts by identity with the official row's configuration and expression scope, jobs, terminal and persistent registration differ from the official modules only in the adapter's own rows, and the real sandbox, subprocess and PTY outcomes match the official baseline. Windows and WSL behavior is asserted with the real official modules on a simulated platform, not on a Windows host.
 
 Configuration is selected during Cordis composition, not execution. The official executor rows remain disabled declarations; the assembly plugin loads exactly one official or selected executor. Default reads the original official row's configuration (including user overrides), not the selected executor's timeout. Shipped POSIX timeout is 60s; PowerShell's schema default is 120s. Missing, duplicate, enabled or non-official native declarations fail explicitly without falling back.
 
@@ -68,12 +68,12 @@ The `github:` spec downloads over HTTPS from codeload.github.com; an npm mirror 
 ## Limits
 
 - WSL requires `danger-full-access` and fails in confined modes; other Windows shells keep DSH's sandbox.
-- v0.3.0 declares the exact DSH `0.2.0-rc.2` peer: its runtime preset hook uses Cordis's internal configuration seam (Cordis 4.0.4 / Loader 1.0.5). Other DSH releases require renewed verification, not a version exemption. Auto/Manual persistent compatibility code is unchanged and still validates the known command frame.
+- v0.3.2 accepts DSH `>=0.2.1-rc.2 <0.3.0`: its runtime preset hook uses Cordis's internal configuration seam. The offline suite passes against DSH 0.2.1-rc.3; the official-tree native differential suite remains the per-release acceptance gate rather than a blanket version exemption. Auto/Manual persistent compatibility code is unchanged and still validates the known command frame.
 - Independent custom preset registrations are not auto-adapted. Their official tools may still describe Bash while a manually selected global executor runs another shell; use the opt-in adapters. Runtime preset views show adapted rows in Auto/Manual, while the official config editor persists authored raw configuration.
 - Configuration saves do not live-switch shells. Restart after enabling/disabling/upgrading/downgrading the bundle. DSH rc.2 can keep the GUI running with a failed optional plugin; a failed assembly is reported, but this bundle does not force the entire application to exit. Resolve that error before running commands.
 - Custom executor scopes (`isolate`/`intercept`/`inject` on the official or assembly row) and a native row moved into another loader group fail explicitly. Keep the official rows and `dsh-shell/assembly` in the same unmodified scope; moving them changes sandbox scope semantics.
 - The official executor row stays disabled, so live profile edits of its raw config take effect on the next full restart, like a mode change. Auto/Manual keep their existing volatile-config behavior.
-- Verified on macOS 15+ (arm64) with DSH `0.2.0-rc.2` and a complete extracted official tree. Windows / WSL, non-PowerShell confinement and the desktop GUI activation flow have no native Windows-host run; Linux CI is not covered by the shipped workflow.
+- Verified on macOS 15+ (arm64) with a complete extracted official tree. Windows / WSL, non-PowerShell confinement and the desktop GUI activation flow have no native Windows-host run; Linux CI is not covered by the shipped workflow.
 - Bash, Zsh, sh, dash, ksh, csh and tcsh are covered by isolated local tests. fish, mksh and ash startup tests are pending, and Windows / WSL has **no Windows-host acceptance run**.
 - Two cases carry a `known:` skip on hosted CI (`CI=true`): the fish frame and sh's initialization handshake fail there while passing in a local macOS run. The skip reason is inline in the test; remove both once the PTY interaction is fixed.
 - `npm test` requires Node.js 24, plus Python 3 for PTY tests only.
@@ -92,7 +92,7 @@ For rollback, first choose the previous Auto/manual selection, collect or cancel
 DSH_OFFICIAL_ROOT=/absolute/path/to/isolated/dsh npm run test:native
 ```
 
-Use a DSH `0.2.0-rc.2` directory containing its complete `node_modules`, including the matching native PTY bindings. No active profile is needed or modified. Tests compare actual official constructors, registrations, execution, environment predicates, timeout, sandbox denial and PTY behavior. They never dump ambient environment values. Native test skips are explicit; without the root, the native-only command fails rather than claiming acceptance.
+Use a complete DSH directory containing its complete `node_modules`, including the matching native PTY bindings. No active profile is needed or modified. Tests compare actual official constructors, registrations, execution, environment predicates, timeout, sandbox denial and PTY behavior. They never dump ambient environment values. Native test skips are explicit; without the root, the native-only command fails rather than claiming acceptance.
 
 ## License
 

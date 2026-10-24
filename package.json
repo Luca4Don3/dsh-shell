@@ -1,7 +1,7 @@
 {
   "name": "dsh-shell",
   "description": "Select the shell for DSH agent commands and persistent terminals",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -47,6 +47,9 @@
     "preset.mjs"
   ],
   "dsh": {
+    "engines": {
+      "dsh": ">=0.2.1-rc.2 <0.3.0"
+    },
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
@@ -60,10 +63,10 @@
     }
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh": "0.2.0-rc.2"
+    "@deepseek-ai/dsh": ">=0.2.1-rc.2 <0.3.0"
   },
   "scripts": {
     "test": "node --test --test-concurrency=1",
-    "test:native": "node -e \"if (!process.env.DSH_OFFICIAL_ROOT) throw new Error('Set DSH_OFFICIAL_ROOT to an isolated DSH 0.2.0-rc.2 installation')\" && node --test --test-concurrency=1 test/native-assembly.test.mjs test/native-differential.test.mjs test/native-jobs.test.mjs test/native-profile-lifecycle.test.mjs"
+    "test:native": "node -e \"if (!process.env.DSH_OFFICIAL_ROOT) throw new Error('Set DSH_OFFICIAL_ROOT to an isolated DSH 0.2.1-rc.3 installation')\" && node --test --test-concurrency=1 test/native-assembly.test.mjs test/native-differential.test.mjs test/native-jobs.test.mjs test/native-profile-lifecycle.test.mjs"
   }
 }
