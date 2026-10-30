@@ -67,6 +67,7 @@ The `github:` spec downloads over HTTPS from codeload.github.com; an npm mirror 
 
 ## Limits
 
+- v0.3.3 fixes lost registration arguments in Auto/Manual: the adapter proxy forwarded only the definition, swallowing DSH 0.2.2's second `register(definition, { when })` argument and disabling per-step conditional tool activation. All trailing arguments (including an explicit `undefined`) are now forwarded unchanged. Default mode bypasses that proxy entirely and is unaffected.
 - WSL requires `danger-full-access` and fails in confined modes; other Windows shells keep DSH's sandbox.
 - v0.3.2 accepts DSH `>=0.2.1-rc.2 <0.3.0`: its runtime preset hook uses Cordis's internal configuration seam. The offline suite passes against DSH 0.2.1-rc.3; the official-tree native differential suite remains the per-release acceptance gate rather than a blanket version exemption. Auto/Manual persistent compatibility code is unchanged and still validates the known command frame.
 - Independent custom preset registrations are not auto-adapted. Their official tools may still describe Bash while a manually selected global executor runs another shell; use the opt-in adapters. Runtime preset views show adapted rows in Auto/Manual, while the official config editor persists authored raw configuration.
@@ -91,6 +92,8 @@ For rollback, first choose the previous Auto/manual selection, collect or cancel
 ```sh
 DSH_OFFICIAL_ROOT=/absolute/path/to/isolated/dsh npm run test:native
 ```
+
+For a release matrix, set `DSH_OFFICIAL_VERSION` to the expected DSH version as well as `DSH_OFFICIAL_ROOT`; a mismatched fixture fails explicitly. The tests read the installed official package versions rather than assuming the old rc.2 baseline. Registration regressions cover the legacy one-argument call and alpha `register(definition, { when })`, including Auto/Manual one-shot and manual persistent adapter paths. Default remains a bypass, not evidence that those proxies work.
 
 Use a complete DSH directory containing its complete `node_modules`, including the matching native PTY bindings. No active profile is needed or modified. Tests compare actual official constructors, registrations, execution, environment predicates, timeout, sandbox denial and PTY behavior. They never dump ambient environment values. Native test skips are explicit; without the root, the native-only command fails rather than claiming acceptance.
 

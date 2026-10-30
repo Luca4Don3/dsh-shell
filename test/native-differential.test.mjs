@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // its node_modules directory or the active ~/.dsh profile. No install occurs.
 // DSH_OFFICIAL_ROOT=/path/to/dsh node --test test/native-differential.test.mjs
 const officialRoot = process.env.DSH_OFFICIAL_ROOT
-const unavailable = !officialRoot && 'set DSH_OFFICIAL_ROOT to an isolated DSH 0.2.0-rc.2 installation'
+const unavailable = !officialRoot && 'set DSH_OFFICIAL_ROOT to an isolated official DSH installation'
 const repository = fileURLToPath(new URL('../', import.meta.url))
 let officialRequire, cordis, Loader, Projection, Policy, LocalSandbox, Subprocess, Terminals
 let BashExecutor, PwshExecutor, BashTool, PwshTool, OfficialTerminal, BashPersistent, PwshPersistent
@@ -27,9 +27,11 @@ if (officialRoot) {
     // because synchronous registerHooks also observes CommonJS resolution.
     return next(id, { ...context, parentURL: anchor })
   } })
+  const runtimeVersion = JSON.parse(readFileSync(officialRequire.resolve('@deepseek-ai/dsh/package.json'), 'utf8')).version
+  if (process.env.DSH_OFFICIAL_VERSION) assert.equal(runtimeVersion, process.env.DSH_OFFICIAL_VERSION)
   for (const name of ['dsh-bash-sandbox', 'dsh-tool-bash', 'dsh-terminal-bash', 'dsh-tool-bash-persistent']) {
     const manifest = JSON.parse(readFileSync(officialRequire.resolve(`@deepseek-ai/${name}/package.json`), 'utf8'))
-    assert.equal(manifest.version, '0.2.0-rc.2', 'the differential baseline must use the pinned official release')
+    assert.equal(manifest.version, runtimeVersion, 'the differential baseline must use matching official packages')
   }
   cordis = await import('@deepseek-ai/cordis')
   ;({ Loader } = await import('@deepseek-ai/cordis-plugin-loader'))

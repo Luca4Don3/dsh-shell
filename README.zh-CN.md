@@ -67,6 +67,7 @@ dsh plugin --profile web add /absolute/path/to/dsh-shell
 
 - WSL 只允许 `danger-full-access`，受限模式下明确失败；其他 Windows Shell 继续经过 DSH 沙箱。
 - v0.3.2 接受 DSH `>=0.2.1-rc.2 <0.3.0`；预设 hook 依赖 Cordis 内部配置接口。离线套件已在 DSH 0.2.1-rc.3 通过；官方源码树的 native 差分测试仍是每个版本的验收门槛，而不是无条件版本豁免。Auto/Manual 持久兼容层未改动，仍校验已知命令帧协议。
+- v0.3.3 修复 Auto/Manual 下的工具注册参数丢失：适配代理原先只转交 definition，会吞掉 DSH 0.2.2 的 `register(definition, { when })` 第二参数，导致按步骤的条件工具激活失效。现按原样透传全部尾随参数（含显式 undefined）。Default 模式完全绕过该代理，不受影响。
 - 保存配置不会热切换 Shell；启用、禁用、升级或回退组合包后都应重启。DSH rc.2 的可选插件失败不会必然使整个 GUI 退出；装配失败会报告错误，但本插件不强制终止应用。修复错误后才能继续运行命令。
 - 独立自定义预设不会自动适配；手动选择其他全局 Shell 时，其官方工具说明可能仍写 Bash，应主动使用适配器。Auto/Manual 的运行时预设视图会显示适配后的条目，官方配置编辑器持久化的仍是原始作者配置。
 - 自定义 Executor 作用域（官方或 assembly 行上的 `isolate`／`intercept`／`inject`）以及被移入其他 loader 组的官方条目会明确报错。请保持官方条目与 `dsh-shell/assembly` 位于同一未修改作用域；移动它们会改变沙箱作用域语义。
@@ -89,6 +90,8 @@ dsh plugin --profile web add /absolute/path/to/dsh-shell
 ```sh
 DSH_OFFICIAL_ROOT=/absolute/path/to/isolated/dsh npm run test:native
 ```
+
+跑多版本矩阵时，可同时设置 `DSH_OFFICIAL_VERSION` 为期望宿主版本；夹具版本不符会明确失败。测试读取实际官方包版本，不再固定为旧 rc.2 基线。注册回归覆盖旧版单参数和 alpha `register(definition, { when })`，包括 Auto/Manual 单次工具及手动持久工具适配分支。Default 仍完全绕过代理，不能用它通过代替代理验收。
 
 需要完整的 DSH 目录及其 `node_modules`，包括匹配的原生 PTY 绑定。不需要、也不会修改活动 Profile。测试比较真实官方构造类型、注册、执行、环境变量布尔谓词、超时、沙箱拒绝与 PTY 行为，不打印宿主环境变量值。跳过项会明确标记；未提供官方目录时，独立 native 命令直接失败，不冒充验收成功。
 

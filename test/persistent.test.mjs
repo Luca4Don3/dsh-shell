@@ -9,7 +9,8 @@ const mocks = {
   `,
   '@deepseek-ai/dsh-tool-bash-persistent': `
     export const apply = (ctx, config) => {
-      ctx.tools.register(globalThis.__persistentDefinition)
+      if (globalThis.__persistentOptions) ctx.tools.register(globalThis.__persistentDefinition, globalThis.__persistentOptions)
+      else ctx.tools.register(globalThis.__persistentDefinition)
       globalThis.__persistentCalls.push({ dialect: 'bash', config, ctx })
     }
   `,
@@ -69,6 +70,29 @@ test('persistent fish, C shell and POSIX parameters describe their syntax and na
     assert.ok(registered[0].parameters.properties.command.description.includes(shell))
     const { config } = globalThis.__persistentCalls.pop()
     assert.match(config.description, new RegExp(`persistent ${shell} shell`))
+  }
+})
+
+test('manual persistent registration preserves upstream when options through both context proxies', () => {
+  const options = Object.freeze({ when: () => false })
+  globalThis.__persistentOptions = options
+  try {
+    for (const shell of ['zsh', 'fish', 'dash', 'tcsh']) {
+      const ctx = context({ id: shell, shell, dialect: 'bash' })
+      let calls = 0
+      const tools = ctx.tools = { register(definition, forwarded) {
+        assert.equal(this, tools)
+        assert.equal(definition.name, shell)
+        assert.equal(forwarded, options)
+        assert.equal(forwarded.when(), false)
+        calls += 1
+      } }
+      apply(ctx, {})
+      assert.equal(calls, 1)
+      globalThis.__persistentCalls.pop()
+    }
+  } finally {
+    delete globalThis.__persistentOptions
   }
 })
 

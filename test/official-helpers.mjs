@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { registerHooks } from 'node:module'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -10,6 +10,10 @@ export function useOfficialDependencies(root = process.env.DSH_OFFICIAL_ROOT) {
   root = resolve(root)
   const manifest = join(root, 'node_modules', '@deepseek-ai', 'cordis', 'package.json')
   if (!existsSync(manifest)) throw new Error(`DSH_OFFICIAL_ROOT has no official Cordis package: ${root}`)
+  const version = JSON.parse(readFileSync(join(root, 'node_modules', '@deepseek-ai', 'dsh', 'package.json'), 'utf8')).version
+  if (process.env.DSH_OFFICIAL_VERSION && version !== process.env.DSH_OFFICIAL_VERSION) {
+    throw new Error(`Expected DSH ${process.env.DSH_OFFICIAL_VERSION}, found ${version} at ${root}`)
+  }
   const parentURL = pathToFileURL(join(root, 'package.json')).href
   const resolvedUrls = new Set()
   const hook = registerHooks({ resolve(specifier, context, next) {
@@ -19,7 +23,7 @@ export function useOfficialDependencies(root = process.env.DSH_OFFICIAL_ROOT) {
     resolvedUrls.add(result.url)
     return result
   } })
-  return { root, resolvedUrls, dispose: () => hook.deregister(), skip: false }
+  return { root, version, resolvedUrls, dispose: () => hook.deregister(), skip: false }
 }
 
 // A subprocess capability seam, not a mock executor or mock Cordis runtime.

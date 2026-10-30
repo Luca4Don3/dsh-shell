@@ -40,10 +40,14 @@ const mocks = {
     export function apply(ctx, config) {
       globalThis.__toolContext = ctx
       ctx.get('sandboxPolicy')
-      const dispose = ctx.tools.register(globalThis.__definition)
+      const dispose = globalThis.__registrationOptions
+        ? ctx.tools.register(globalThis.__definition, globalThis.__registrationOptions)
+        : ctx.tools.register(globalThis.__definition)
       ctx.inject(['jobs'], jobCtx => {
         dispose()
-        const unregister = ctx.tools.register(globalThis.__jobDefinition)
+        const unregister = globalThis.__registrationOptions
+          ? ctx.tools.register(globalThis.__jobDefinition, globalThis.__registrationOptions)
+          : ctx.tools.register(globalThis.__jobDefinition)
         jobCtx.effect(() => unregister)
       })
     }
@@ -201,6 +205,42 @@ test('tool adaptation changes guidance and name while keeping validation, execut
   assert.equal(ctx.tools, tools)
   // The WSL branch runs Bash, so the registered name follows that shell.
   assert.equal(registered[0].name, 'bash')
+})
+
+test('Auto/Manual one-shot branches preserve host when options across job re-registration', () => {
+  const options = Object.freeze({ when: () => false })
+  globalThis.__registrationOptions = options
+  globalThis.__definition = { name: 'bash', parameters: { properties: { command: {}, workdir: {} } } }
+  globalThis.__jobDefinition = { ...globalThis.__definition, execute() {} }
+  try {
+    for (const [adapter, selection, expectedName] of [
+      [posixTool, { id: 'auto', shell: 'bash', dialect: 'bash' }, 'bash'],
+      [posixTool, { id: 'zsh', shell: 'zsh', dialect: 'bash' }, 'zsh'],
+      [tool, { id: 'auto', dialect: 'pwsh' }, 'pwsh'],
+      [tool, git, 'bash'], [tool, wsl, 'bash'],
+    ]) {
+      globalThis.__definition = { ...globalThis.__definition, name: adapter === posixTool ? 'bash' : 'pwsh' }
+      globalThis.__jobDefinition = { ...globalThis.__jobDefinition, name: globalThis.__definition.name }
+      const calls = [], injections = []
+      const tools = { register(definition, forwarded) {
+        assert.equal(this, tools)
+        calls.push({ definition, forwarded })
+        return () => {}
+      } }
+      const ctx = { tools, shellSelection: { selected: selection }, get() {},
+        inject(names, callback) { injections.push(callback); return { dispose() {} } } }
+      adapter.apply(ctx, {})
+      for (const callback of injections) callback({ jobs: { start() {} }, effect() {} })
+      assert.equal(calls.length, 2)
+      for (const { definition, forwarded } of calls) {
+        assert.equal(definition.name, expectedName)
+        assert.equal(forwarded, options)
+        assert.equal(forwarded.when(), false)
+      }
+    }
+  } finally {
+    delete globalThis.__registrationOptions
+  }
 })
 
 function terminalContext(selection, mode = 'danger-full-access', config = {}, fiber) {
