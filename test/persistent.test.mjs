@@ -8,6 +8,7 @@ const mocks = {
     export default { object: () => ({}), string: () => field, number: () => field }
   `,
   '@deepseek-ai/dsh-tool-bash-persistent': `
+    export const inject = ['tools', 'terminals', 'workingDirectory', 'bashFixture']
     export const apply = (ctx, config) => {
       if (globalThis.__persistentOptions) ctx.tools.register(globalThis.__persistentDefinition, globalThis.__persistentOptions)
       else ctx.tools.register(globalThis.__persistentDefinition)
@@ -15,6 +16,7 @@ const mocks = {
     }
   `,
   '@deepseek-ai/dsh-tool-pwsh-persistent': `
+    export const inject = ['tools', 'terminals', 'workingDirectory', 'pwshFixture']
     export const apply = (_ctx, config) => globalThis.__persistentCalls.push({ dialect: 'pwsh', config })
   `,
 }
@@ -27,10 +29,14 @@ registerHooks({
 })
 globalThis.__persistentCalls = []
 globalThis.__persistentDefinition = { name: 'bash', execute() {}, parameters: { properties: { command: { type: 'string' } } } }
-const { apply } = await import('../persistent.mjs')
+const { apply, inject } = await import('../persistent.mjs')
 function context(selection, registered = []) {
   return { shellSelection: { selected: selection }, terminals: {}, tools: { register: definition => registered.push(definition) } }
 }
+
+test('持久工具保留上游依赖声明，包括新版工作目录服务', () => {
+  assert.deepEqual(inject, ['tools', 'terminals', 'workingDirectory', 'bashFixture', 'pwshFixture', 'shellSelection'])
+})
 
 test('default persistent registration uses the original context/config without transport or guidance adaptation', () => {
   const config = { timeoutMs: 321, description: 'Official configured guide' }

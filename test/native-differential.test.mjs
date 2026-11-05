@@ -278,6 +278,15 @@ async function persistentRuntime(t, files, candidate) {
   await mount(ctx, Terminals)
   const definitions = []
   ctx.reflect.provide('tools', { register(value) { definitions.push(value); return () => {} } })
+  if (OfficialTerminal.inject.includes('workingDirectory')) {
+    // 按官方依赖声明补齐新版服务，避免旧版加载不存在的模块。
+    const [{ default: FileSystem }, { default: SystemPrompt }, { default: WorkingDirectory }] = await Promise.all([
+      import('@deepseek-ai/dsh-fs-local'), import('@deepseek-ai/dsh-system-prompt'), import('@deepseek-ai/dsh-working-directory'),
+    ])
+    await mount(ctx, FileSystem, { cwd: files.workdir })
+    await mount(ctx, SystemPrompt, { includeHarnessIdentity: false, includeRuntimeContext: false })
+    await mount(ctx, WorkingDirectory, { defaultDirectory: files.workdir })
+  }
   const owners = new Map()
   ctx.reflect.provide('agents', owners)
   const owner = { id: 'native-differential-owner', ctx, session: { id: 'native-differential-session',
@@ -300,7 +309,7 @@ async function persistentStage(t, label, action) {
     return result
   } catch (error) {
     const knownTimeout = error?.name === 'TimeoutReason' && error?.code === 'PERSISTENT_BASH_TIMEOUT'
-    throw new Error(`${label}: failed${knownTimeout ? ' (PERSISTENT_BASH_TIMEOUT)' : ''}`)
+    throw new Error(`${label}: failed${knownTimeout ? ' (PERSISTENT_BASH_TIMEOUT)' : ''}`, { cause: error })
   }
 }
 

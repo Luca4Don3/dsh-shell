@@ -1,10 +1,10 @@
-import { apply as applyTerminal, BashTerminalBackend, Config as TerminalConfig } from '@deepseek-ai/dsh-terminal-bash'
+import { apply as applyTerminal, BashTerminalBackend, Config as TerminalConfig, inject as terminalInject } from '@deepseek-ai/dsh-terminal-bash'
 import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 import { assertBashPolicy, bashRuntimeArgv, isWindowsBash, runtimeEnvironment } from './bash-runtime.mjs'
 import { inheritPosixEnvironment, initializePosixSession, posixShellArgs } from './posix-runtime.mjs'
 
 export const name = 'terminal-selected-shell'
-export const inject = ['terminals', 'sandboxPolicy', 'sessionProjections', 'subprocess', 'shellSelection', 'shell']
+export const inject = [...new Set([...terminalInject, 'shellSelection', 'shell'])]
 export const Config = TerminalConfig
 
 class SelectedTerminalBackend extends BashTerminalBackend {
@@ -34,10 +34,9 @@ class SelectedTerminalBackend extends BashTerminalBackend {
 export function apply(ctx, config) {
   const selection = ctx.shellSelection.selected
   if (selection.id === 'default') {
-    // An authored raw config decides its own dialect; only an absent row falls
-    // back to the native platform default. ctx.fiber._config is that raw config
-    // when this plugin runs from a preset row; a direct apply passes it resolved.
-    const raw = ctx.fiber?._config
+    // 作者明确指定的方言优先，仅缺省时使用原生平台方言。
+    // 新版通过 rawConfig 暴露原始配置，旧版仍使用 _config。
+    const raw = ctx.fiber?.rawConfig ?? ctx.fiber?._config
     const explicit = typeof raw === 'object' && raw !== null && 'shellDialect' in raw
     return applyTerminal(ctx, explicit ? config : { ...config, shellDialect: selection.dialect })
   }

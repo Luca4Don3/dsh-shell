@@ -115,3 +115,33 @@ test('the runtime hook targets only the four official carriers, never custom dec
   assert.equal(carrier('preset-standard').entry.options.config, config)
   assert.equal(changed.id, config.id)
 })
+
+test('新版配置事件通过显式作用域适配预设，不依赖 this', () => {
+  let hook
+  const ctx = { shellSelection: { selected: { id: 'auto' } }, on(_name, callback) { hook = callback } }
+  installPresetSelection(ctx)
+  const AgentPreset = Object.getPrototypeOf(SelectedPreset)
+  const fixture = { plugins: [{ name: process.platform === 'win32'
+    ? '@deepseek-ai/dsh-tool-pwsh' : '@deepseek-ai/dsh-tool-bash' }] }
+  const before = structuredClone(fixture)
+  for (const id of ['preset-standard', 'preset-ptc', 'preset-cordis', 'preset-minimal']) {
+    const fiber = { runtime: { callback: AgentPreset },
+      entry: { options: { id, name: '@deepseek-ai/dsh-agent-preset', config: fixture } } }
+    let nextCalls = 0
+    const changed = hook.call(null, fiber, () => { nextCalls++; return fixture })
+    assert.equal(nextCalls, 1)
+    assert.notEqual(changed, fixture)
+    assert.equal(changed.plugins[0].name, process.platform === 'win32'
+      ? 'dsh-shell/tool-windows' : 'dsh-shell/tool-posix')
+    assert.equal(fiber.entry.options.config, fixture)
+    ctx.shellSelection.selected = { id: 'default' }
+    assert.equal(hook.call(undefined, fiber, () => fixture), fixture)
+    ctx.shellSelection.selected = { id: 'auto' }
+  }
+  assert.deepEqual(fixture, before)
+  for (const fiber of [undefined, {}, { runtime: {} }, { runtime: { callback: AgentPreset } },
+    { runtime: { callback: AgentPreset }, entry: { options: { id: 'custom', name: '@deepseek-ai/dsh-agent-preset' } } },
+    { runtime: { callback: AgentPreset }, entry: { options: { id: 'preset-standard', name: 'custom-preset' } } }]) {
+    assert.equal(hook.call(null, fiber, () => fixture), fixture)
+  }
+})

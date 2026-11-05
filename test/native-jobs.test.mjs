@@ -62,7 +62,15 @@ if (unavailable) {
     ctx.provide('shellSelection', { selected: selection })
     const definitions = []
     ctx.provide('tools', { register(definition) { definitions.push(definition); return () => {} } })
-    ctx.provide('systemPrompt', { section() {}, getSectionOrder() { return 0 } })
+    if (BashTool.inject.includes('workingDirectory')) {
+      // 新版工具依赖官方工作目录服务，旧版保持原有夹具组合。
+      const [{ default: FileSystem }, { default: SystemPrompt }, { default: WorkingDirectory }] = await Promise.all([
+        import('@deepseek-ai/dsh-fs-local'), import('@deepseek-ai/dsh-system-prompt'), import('@deepseek-ai/dsh-working-directory'),
+      ])
+      await ctx.plugin(FileSystem, { cwd: workspaceRoot })
+      await ctx.plugin(SystemPrompt, { includeHarnessIdentity: false, includeRuntimeContext: false })
+      await ctx.plugin(WorkingDirectory, { defaultDirectory: workspaceRoot })
+    } else ctx.provide('systemPrompt', { section() {}, getSectionOrder() { return 0 } })
     return { ctx, definitions, subprocess, confined, workspaceRoot }
   }
 
@@ -97,7 +105,8 @@ if (unavailable) {
       const background = await harness.definitions[0].execute(
         { command: "printf 'native-job'", description: "start a native background job", run_in_background: true }, executionContext(signal))
       assert.equal(background.kind, 'background')
-      assert.match(background.jobId, /^bash-\d+$/)
+      // 官方旧版使用数字编号，新版使用十六位十六进制编号。
+      assert.match(background.jobId, /^bash-(?:\d+|[a-f0-9]{16})$/)
       const liveJobs = harness.ctx.get('jobs')
       const view = liveJobs.get(background.jobId)
       assert.equal(view.kind, 'bash')

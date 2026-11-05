@@ -6,7 +6,8 @@ import { withToolRegistration } from './tool-context.mjs'
 import { withPersistentTransport } from './persistent-runtime.mjs'
 
 export const name = 'persistent-selected-shell'
-export const inject = ['tools', 'terminals', 'shellSelection']
+// 直接调用官方实现时必须保留其依赖，同时兼容旧版声明。
+export const inject = [...new Set([...BashPersistent.inject, ...PwshPersistent.inject, 'shellSelection'])]
 export const Config = z.object({
   backendType: z.string().default('shell'),
   timeoutMs: z.number().default(300000),

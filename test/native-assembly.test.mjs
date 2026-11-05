@@ -411,6 +411,19 @@ if (official.skip) {
       .every(row => row.config.timeoutMs === 300000 && row.config.description))
   })
 
+  test('全局预设监听器不会阻断无关插件的真实配置与加载', async t => {
+    const harness = await presetFixture('auto')
+    t.after(() => harness.dispose())
+    const authored = { owner: 'unrelated-fixture' }
+    let resolved
+    const fiber = await harness.ctx.plugin({ name: 'unrelated-config-probe', apply(_ctx, config) {
+      resolved = config
+    } }, authored)
+    await fiber.await()
+    assert.equal(resolved, authored)
+    assert.equal(harness.registered.size, 5)
+  })
+
   test('Auto and Manual adapt only official preset runtime copies and preserve authored overrides', async t => {
     const modes = [{ label: 'Auto', config: { shell: 'auto' } }]
     if (!windows) modes.push({ label: 'Manual', config: { shell: 'bash', shellPath: '/bin/bash' } })
@@ -456,7 +469,8 @@ if (official.skip) {
     await harness.indexEntry.update({ config: { shell: 'auto' } })
     await harness.ctx.loader.await()
     assert.deepEqual(harness.indexEntry.options.config, { shell: 'auto' })
-    assert.equal(fiber.config.shell.get(), 'auto')
+    // 新版将原始配置与生效配置分离，旧版仍从 config 读取响应式引用。
+    assert.equal((fiber.effectiveConfig ?? fiber.config).shell.get(), 'auto')
     assert.equal(harness.indexEntry.fiber, fiber)
     assert.equal(harness.ctx.get('shellSelection').selected, selection)
     assert.equal(harness.ctx.get('shellSelection').selected.id, 'default')

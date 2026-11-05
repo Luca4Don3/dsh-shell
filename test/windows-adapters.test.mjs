@@ -56,6 +56,7 @@ const mocks = {
     export { name, inject, Config, apply } from '@deepseek-ai/dsh-tool-pwsh'
   `,
   '@deepseek-ai/dsh-terminal-bash': `
+    export const inject = ['terminals', 'sandboxPolicy', 'sessionProjections', 'subprocess', 'workingDirectory']
     export const Config = value => value
     export function apply(ctx, config) {
       if (config.timeoutMs === -1) throw new Error('terminal-bash: timeoutMs must be a positive safe integer')
@@ -262,11 +263,26 @@ test('default terminal honors an authored dialect and applies the platform diale
   // Direct apply without a Loader raw config falls back to the platform dialect.
   const fallback = terminalContext(bash)
   assert.equal(fallback.ctx.backend.config.shellDialect, 'bash')
-  // A Loader carried raw config with an explicit dialect keeps that authored value.
-  const authored = terminalContext(bash, 'danger-full-access', { shellDialect: 'pwsh', timeoutMs: 12 },
-    { _config: { shellDialect: 'pwsh', timeoutMs: 12 } })
-  assert.equal(authored.ctx.backend.config.shellDialect, 'pwsh')
-  assert.equal(authored.ctx.backend.config.timeoutMs, 12)
+  // 新旧宿主的原始配置入口都必须保留作者明确指定的方言。
+  for (const key of ['_config', 'rawConfig']) {
+    const authored = terminalContext(bash, 'danger-full-access', { shellDialect: 'pwsh', timeoutMs: 12 },
+      { [key]: { shellDialect: 'pwsh', timeoutMs: 12 } })
+    assert.equal(authored.ctx.backend.config.shellDialect, 'pwsh')
+    assert.equal(authored.ctx.backend.config.timeoutMs, 12)
+  }
+})
+
+test('新版空原始配置优先于旧字段，保留平台默认方言', () => {
+  const selection = { id: 'default', dialect: 'pwsh' }
+  const { ctx } = terminalContext(selection, 'danger-full-access', { shellDialect: 'bash', timeoutMs: 12 },
+    { rawConfig: {}, _config: { shellDialect: 'bash' } })
+  assert.equal(ctx.backend.config.shellDialect, 'pwsh')
+  assert.equal(ctx.backend.config.timeoutMs, 12)
+})
+
+test('终端适配器继承上游依赖，不遗漏新版工作目录服务', () => {
+  assert.deepEqual(terminal.inject, ['terminals', 'sandboxPolicy', 'sessionProjections', 'subprocess',
+    'workingDirectory', 'shellSelection', 'shell'])
 })
 
 test('default bypasses selected terminal construction and rejects direct SelectedExecutor assembly', () => {

@@ -50,11 +50,13 @@ export function installPresetSelection(ctx) {
   // Official EntryGroup carriers leave child expressions inert until activation.
   // Only transform their runtime copies, never entry.options.config or profile
   // files. Additional/custom carriers are opt-in via the exported preset class.
-  ctx.on('internal/config', function (_config, next) {
+  ctx.on('internal/config', function (fiber, next) {
     const config = next()
-    if (this.runtime?.callback !== AgentPreset
-      || this.entry?.options.name !== '@deepseek-ai/dsh-agent-preset'
-      || !shippedEntries.has(this.entry.options.id)) return config
+    // 旧版将作用域绑定到 this，新版通过首参显式传入。
+    const carrier = this ?? fiber
+    if (carrier?.runtime?.callback !== AgentPreset
+      || carrier.entry?.options.name !== '@deepseek-ai/dsh-agent-preset'
+      || !shippedEntries.has(carrier.entry.options.id)) return config
     return adaptPresetConfig(config, process.platform, ctx.shellSelection.selected)
   }, { global: true })
 }
