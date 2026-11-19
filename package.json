@@ -1,7 +1,7 @@
 {
   "name": "dsh-shell",
   "description": "Select the shell for DSH agent commands and persistent terminals",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -48,7 +48,7 @@
   ],
   "dsh": {
     "engines": {
-      "dsh": ">=0.2.1-rc.2 <0.3.0"
+      "dsh": "0.2.2-rc.1 || 0.2.2-rc.2 || 0.2.2-rc.3 || 0.2.2-rc.4 || 0.2.2-rc.5"
     },
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -63,7 +63,7 @@
     }
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh": ">=0.2.1-rc.2 <0.3.0"
+    "@deepseek-ai/dsh": "0.2.2-rc.1 || 0.2.2-rc.2 || 0.2.2-rc.3 || 0.2.2-rc.4 || 0.2.2-rc.5"
   },
   "scripts": {
     "test": "node --test --test-concurrency=1",
