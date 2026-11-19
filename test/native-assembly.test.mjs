@@ -380,7 +380,9 @@ if (official.skip) {
     }
     const assembly = result.find(row => row.id === 'selected-shell')
     assert.equal(assembly.name, 'dsh-shell/assembly')
-    assert.equal(assembly.config.timeoutMs, 60000)
+    // No hard-coded timeoutMs: each platform keeps its official default
+    // (bash 60s, pwsh 120s); the row ships an empty config on purpose.
+    assert.deepEqual(assembly.config, {})
     assert.deepEqual(authored, [...base, ...presets])
     const userConfig = { id: 'standard', description: 'A later user override', plugins: [
       { id: 'user-only-tool', name: 'user-owned-module', config: { instruction: 'literal text' } },

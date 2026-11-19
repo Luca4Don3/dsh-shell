@@ -12,9 +12,11 @@
       config:
         shell: auto
     - id: selected-shell
+      # No timeoutMs here on purpose: the official executors each own their
+      # defaults (bash 60s, pwsh 120s). A hard-coded 60s would halve the
+      # Windows one-shot default. Set it only to override both platforms.
       name: dsh-shell/assembly
-      config:
-        timeoutMs: 60000
+      config: {}
 
 # Preserve authored presets (including user modifications). The selection plugin
 # adapts only these official carriers' runtime copies in Auto/Manual; Default
