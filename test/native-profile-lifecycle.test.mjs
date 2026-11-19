@@ -67,13 +67,13 @@ if (official.skip) {
   test('the current install manifest is accepted on the target releases and rejects out-of-range hosts', () => {
     const original = structuredClone(manifest)
     assert.equal(getDshRuntimeVersion(), official.version)
-    const range = '>=0.2.1-rc.2 <0.3.0'
+    const range = '0.2.2-rc.1 || 0.2.2-rc.2 || 0.2.2-rc.3 || 0.2.2-rc.4 || 0.2.2-rc.5'
     assert.equal(manifest.peerDependencies['@deepseek-ai/dsh'], range)
     assert.equal(evaluatePluginCompatibility(manifest), undefined)
-    for (const version of ['0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.5', '0.2.2-alpha.2']) {
+    for (const version of ['0.2.2-rc.2', '0.2.2-rc.3', '0.2.2-rc.4', '0.2.2-rc.5']) {
       assert.equal(evaluatePluginCompatibility(manifest, {}, version), undefined)
     }
-    for (const version of ['0.2.1-rc.1', '0.3.0']) {
+    for (const version of ['0.2.1-rc.1', '0.2.1-rc.3', '0.2.2-alpha.2', '0.2.2-rc.6', '0.3.0']) {
       assert.ok(evaluatePluginCompatibility(manifest, {}, version))
     }
     assert.deepEqual(manifest, original)

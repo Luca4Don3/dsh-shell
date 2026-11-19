@@ -4,7 +4,7 @@
 
 English | [中文](README.zh-CN.md)
 
-Selects the shell for DSH agent commands and the `minimal` persistent terminal. v0.3.2 adds **Default Native Passthrough** and accepts DSH `>=0.2.1-rc.2 <0.3.0`. The saved default remains `auto`; existing selections are not migrated.
+Selects the shell for DSH agent commands and the `minimal` persistent terminal. v0.3.5 converges the engine declaration to the verified exact set `0.2.2-rc.1 || 0.2.2-rc.2 || 0.2.2-rc.3 || 0.2.2-rc.4 || 0.2.2-rc.5`; unadapted DSH releases are rejected by the installer. The saved default remains `auto`; existing selections are not migrated.
 
 ## Modes
 
@@ -69,7 +69,7 @@ The `github:` spec downloads over HTTPS from codeload.github.com; an npm mirror 
 
 - v0.3.3 fixes lost registration arguments in Auto/Manual: the adapter proxy forwarded only the definition, swallowing DSH 0.2.2's second `register(definition, { when })` argument and disabling per-step conditional tool activation. All trailing arguments (including an explicit `undefined`) are now forwarded unchanged. Default mode bypasses that proxy entirely and is unaffected.
 - WSL requires `danger-full-access` and fails in confined modes; other Windows shells keep DSH's sandbox.
-- v0.3.2 accepts DSH `>=0.2.1-rc.2 <0.3.0`: its runtime preset hook uses Cordis's internal configuration seam. The offline suite passes against DSH 0.2.1-rc.3; the official-tree native differential suite remains the per-release acceptance gate rather than a blanket version exemption. Auto/Manual persistent compatibility code is unchanged and still validates the known command frame.
+- v0.3.5 accepts exactly the verified DSH releases `0.2.2-rc.1` through `0.2.2-rc.5` (see the acceptance matrix above): its runtime preset hook uses Cordis's internal configuration seam, and the official-tree native differential suite is the per-release acceptance gate. DSH 0.2.2 also changed the persistent session init to `'stty -echo; set +H'`; both spellings are accepted and translated per dialect. Auto/Manual persistent compatibility code still validates the known command frame.
 - v0.3.4 acceptance matrix (2026-11-19): the official-tree native suite was run against isolated, version-pinned fixtures (`DSH_OFFICIAL_ROOT` + `DSH_OFFICIAL_VERSION`) of every 0.2.2 release candidate, rc.1 through rc.5. Each release passes 39 of 42 cases; the 2 failures are the sandbox-denial and PTY cases, which cannot allocate `sandbox-exec` or pty devices from inside a nested DSH sandbox and must be re-run from a plain terminal against a complete official tree for final sign-off, and 1 case is the Windows-platform selector skip. No composition, registration or preset-adaptation regression appeared across rc.1–rc.5.
 - Independent custom preset registrations are not auto-adapted. Their official tools may still describe Bash while a manually selected global executor runs another shell; use the opt-in adapters. Runtime preset views show adapted rows in Auto/Manual, while the official config editor persists authored raw configuration.
 - Configuration saves do not live-switch shells. Restart after enabling/disabling/upgrading/downgrading the bundle. DSH rc.2 can keep the GUI running with a failed optional plugin; a failed assembly is reported, but this bundle does not force the entire application to exit. Resolve that error before running commands.

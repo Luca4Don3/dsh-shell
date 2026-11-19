@@ -21,6 +21,21 @@ function upstreamFrame(command, nonce) {
   return `printf '%s\\n' ${quote(`__DSH_PERSISTENT_BASH_START_${nonce}__`)}; eval -- ${quote(command)}; __dsh_persistent_bash_status=$?; printf '%s%s\\n' ${quote(`__DSH_PERSISTENT_BASH_END_${nonce}:`)} "$__dsh_persistent_bash_status"`
 }
 
+test('official 0.2.2 init text is accepted on every dialect', () => {
+  // DSH 0.2.2-rc.1 sends 'stty -echo; set +H'; 0.2.0-rc.1 sent 'stty -echo'.
+  const official022 = 'stty -echo; set +H'
+  assert.equal(adaptPersistentCommand(official022, 'sh'), 'stty -echo && { if [ -n "${BASH_VERSION-}" ]; then set +o emacs; set +o vi; set +H; fi; }')
+  assert.equal(adaptPersistentCommand('stty -echo', 'sh'), 'stty -echo && { if [ -n "${BASH_VERSION-}" ]; then set +o emacs; set +o vi; set +H; fi; }')
+  for (const shell of ['bash', 'zsh', 'dash', 'ksh', 'mksh', 'ash', 'fish', 'csh', 'tcsh']) {
+    assert.equal(adaptPersistentCommand(official022, shell), 'stty -echo', shell)
+    assert.equal(adaptPersistentCommand('stty -echo', shell), 'stty -echo', shell)
+  }
+  assert.equal(adaptPersistentCommand('', 'sh'), '')
+  // Close but wrong spellings still fail loudly instead of passing through.
+  assert.throws(() => adaptPersistentCommand('stty -echo; set +H; echo extra', 'zsh'), /unsupported DSH/)
+  assert.throws(() => adaptPersistentCommand('stty -echo;', 'zsh'), /unsupported DSH/)
+})
+
 test('persistent transport retains lifecycle receivers, signals and empty readiness polls', () => {
   const calls = []
   const terminals = {

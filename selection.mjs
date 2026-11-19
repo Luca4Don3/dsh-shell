@@ -152,8 +152,10 @@ export function detectPosixShells(env = process.env, { present = executable, rea
   let registered = []
   try {
     registered = read('/etc/shells', 'utf8').split(/\r?\n/).map(line => line.split('#')[0].trim()).filter(Boolean)
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error
+  } catch {
+    // /etc/shells is only one candidate source: any read failure (missing,
+    // permission-restricted or replaced by a directory) degrades to skipping
+    // the registry. PATH and standard-directory probing still cover detection.
   }
   return posixShells.flatMap(shell => {
     const candidates = [...new Set([

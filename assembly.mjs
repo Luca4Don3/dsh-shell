@@ -13,7 +13,13 @@ const scopeKeys = ['isolate', 'intercept', 'inject']
 export async function apply(ctx, config) {
   if (ctx.shellSelection.selected.id !== 'default') {
     const { default: SelectedExecutor } = await import('./shell.mjs')
-    await ctx.plugin(SelectedExecutor, config)
+    // Windows one-shot executors default to 120s (official pwsh). The assembly
+    // row's explicit 60s serves the POSIX executor; forwarding it on win32
+    // would halve the selected executor's default. Drop it there so the
+    // official default applies, exactly like the Default passthrough below.
+    const selectedConfig = { ...config }
+    if (process.platform === 'win32') delete selectedConfig.timeoutMs
+    await ctx.plugin(SelectedExecutor, selectedConfig)
     return
   }
 

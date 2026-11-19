@@ -17,14 +17,22 @@ function chunks(value) {
   return result
 }
 
+// Official DSH 0.2.0-rc.1 initializes persistent sessions with 'stty -echo';
+// 0.2.2-rc.1 additionally disables history expansion with 'set +H'. Accept
+// both spellings on every dialect.
+const officialInit = /^stty -echo(?:; set \+H)?$/
+
 export function adaptPersistentCommand(text, shell) {
   // Bash used as sh can lose queued continuation lines while readline toggles
   // terminal modes. Persistent frames need no prompt editor; keep canonical
   // input enabled for programs run by the command itself.
-  if (text === 'stty -echo' && shell === 'sh') {
-    return 'stty -echo && { if [ -n "${BASH_VERSION-}" ]; then set +o emacs; set +o vi; fi; }'
+  if (officialInit.test(text) && shell === 'sh') {
+    return 'stty -echo && { if [ -n "${BASH_VERSION-}" ]; then set +o emacs; set +o vi; set +H; fi; }'
   }
   if (text === '' || text === 'stty -echo') return text
+  // Non-sh dialects keep the original 'stty -echo' behavior: fish/csh reject
+  // the 'set +H' spelling, and non-interactive zsh has no history expansion.
+  if (officialInit.test(text)) return 'stty -echo'
   const match = frame.exec(text)
   if (!match) throw new Error('dsh-shell: unsupported DSH persistent command frame; check the DSH version')
   const [start, command, end] = match.slice(1).map(decode)
